@@ -1,19 +1,19 @@
 // Jenga Systems brand colours — dark theme
 export const colors = {
-  background: '#0F1923',      // deep dark navy
-  surface: '#1A2533',         // card / input background
-  surfaceElevated: '#22303F', // elevated cards
-  border: '#2A3A4A',          // subtle borders
-  primary: '#33D169',         // vibrant green (CTAs, highlights)
-  primaryDark: '#28A852',     // pressed state
-  accent: '#B3E84C',          // yellow-green (secondary highlights)
-  text: '#F0F4F8',            // primary text
-  textSecondary: '#8FA3B4',   // secondary text
-  textMuted: '#4A6278',       // placeholder / muted text
-  danger: '#FF4C4C',          // errors / lost status
-  warning: '#FFB347',         // paused / draft status
-  success: '#33D169',         // active / converted status
-  info: '#4C9FFF',            // new / info status
+  background: '#0F1923',
+  surface: '#1A2533',
+  surfaceElevated: '#22303F',
+  border: '#2A3A4A',
+  primary: '#33D169',
+  primaryDark: '#28A852',
+  accent: '#B3E84C',
+  text: '#F0F4F8',
+  textSecondary: '#8FA3B4',
+  textMuted: '#4A6278',
+  danger: '#FF4C4C',
+  warning: '#FFB347',
+  success: '#33D169',
+  info: '#4C9FFF',
 } as const;
 
 export const fonts = {
@@ -39,25 +39,71 @@ export const radius = {
   full: 9999,
 };
 
-// Lead status → colour + label
+// ── Lead pipeline stages ─────────────────────────────────────────────────────
+
+export type LeadStage =
+  | 'new_lead'
+  | 'contacted'
+  | 'trial_booked'
+  | 'trial_completed'
+  | 'joined_gym'
+  | 'lost_lead';
+
+export type LeadSource =
+  | 'website'
+  | 'instagram'
+  | 'referral'
+  | 'walk_in'
+  | 'google_ads'
+  | 'other';
+
+export type LeadInterest = 'membership' | 'personal_training' | 'group_classes';
+
+export const LEAD_STAGES: { key: LeadStage; label: string; color: string }[] = [
+  { key: 'new_lead',        label: 'New Lead',         color: '#4C9FFF' },
+  { key: 'contacted',       label: 'Contacted',         color: '#FFD24C' },
+  { key: 'trial_booked',    label: 'Trial Booked',      color: '#A855F7' },
+  { key: 'trial_completed', label: 'Trial Completed',   color: '#F97316' },
+  { key: 'joined_gym',      label: 'Joined Gym',        color: '#33D169' },
+  { key: 'lost_lead',       label: 'Lost Lead',         color: '#FF4C4C' },
+];
+
+export const LEAD_SOURCES: { key: LeadSource; label: string }[] = [
+  { key: 'website',     label: 'Website' },
+  { key: 'instagram',   label: 'Instagram' },
+  { key: 'referral',    label: 'Referral' },
+  { key: 'walk_in',     label: 'Walk-in' },
+  { key: 'google_ads',  label: 'Google Ads' },
+  { key: 'other',       label: 'Other' },
+];
+
+export const LEAD_INTERESTS: { key: LeadInterest; label: string }[] = [
+  { key: 'membership',         label: 'Membership' },
+  { key: 'personal_training',  label: 'Personal Training' },
+  { key: 'group_classes',      label: 'Group Classes' },
+];
+
+export function getStageConfig(key: LeadStage) {
+  return LEAD_STAGES.find(s => s.key === key) ?? LEAD_STAGES[0];
+}
+
+// Legacy aliases kept for other screens
 export const leadStatusConfig = {
-  new: { color: colors.info, label: 'New' },
+  new:       { color: colors.info,    label: 'New' },
   contacted: { color: colors.warning, label: 'Contacted' },
   converted: { color: colors.success, label: 'Converted' },
-  lost: { color: colors.danger, label: 'Lost' },
+  lost:      { color: colors.danger,  label: 'Lost' },
 } as const;
 
-// Campaign type → label
 export const campaignTypeConfig = {
-  sms: { label: 'SMS', icon: 'chatbubble-outline' },
-  email: { label: 'Email', icon: 'mail-outline' },
-  whatsapp: { label: 'WhatsApp', icon: 'logo-whatsapp' },
+  sms:       { label: 'SMS',       icon: 'chatbubble-outline' },
+  email:     { label: 'Email',     icon: 'mail-outline' },
+  whatsapp:  { label: 'WhatsApp',  icon: 'logo-whatsapp' },
 } as const;
 
-// Campaign status → colour + label
 export const campaignStatusConfig = {
-  draft: { color: colors.textMuted, label: 'Draft' },
-  active: { color: colors.success, label: 'Active' },
-  completed: { color: colors.textSecondary, label: 'Completed' },
-  paused: { color: colors.warning, label: 'Paused' },
+  draft:     { color: colors.textMuted,      label: 'Draft' },
+  active:    { color: colors.success,        label: 'Active' },
+  completed: { color: colors.textSecondary,  label: 'Completed' },
+  paused:    { color: colors.warning,        label: 'Paused' },
 } as const;

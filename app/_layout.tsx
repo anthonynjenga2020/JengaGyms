@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
+import { LeadsProvider } from '@/context/LeadsContext';
 import type { Session } from '@supabase/supabase-js';
 
 export default function RootLayout() {
@@ -31,12 +32,13 @@ export default function RootLayout() {
   }, [initialized, session]);
 
   return (
-    <>
+    <LeadsProvider>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="lead/[id]" />
       </Stack>
-    </>
+    </LeadsProvider>
   );
 }
