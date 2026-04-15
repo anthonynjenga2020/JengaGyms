@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
 import { LeadsProvider } from '@/context/LeadsContext';
 import { MembersProvider } from '@/context/MembersContext';
+import { MessagesProvider } from '@/context/MessagesContext';
 import type { Session } from '@supabase/supabase-js';
 
 export default function RootLayout() {
@@ -35,13 +36,16 @@ export default function RootLayout() {
   return (
     <MembersProvider>
       <LeadsProvider>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="lead/[id]" />
-          <Stack.Screen name="member/[id]" />
-        </Stack>
+        <MessagesProvider>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="lead/[id]" />
+            <Stack.Screen name="member/[id]" />
+            <Stack.Screen name="conversation/[id]" />
+          </Stack>
+        </MessagesProvider>
       </LeadsProvider>
     </MembersProvider>
   );
