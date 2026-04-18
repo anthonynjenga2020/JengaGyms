@@ -55,12 +55,14 @@ type State = {
 };
 
 type Action =
-  | { type: 'SEND_MESSAGE'; conversationId: string; body: string; senderName: string }
+  | { type: 'SEND_MESSAGE'; conversationId: string; body: string; senderName: string; msgId: string }
   | { type: 'MARK_READ'; conversationId: string }
+  | { type: 'MARK_UNREAD'; conversationId: string }
   | { type: 'RESOLVE'; conversationId: string }
   | { type: 'REOPEN'; conversationId: string }
   | { type: 'ASSIGN'; conversationId: string; assignedTo: string | null }
   | { type: 'ADD_CONVERSATION'; conversation: Conversation; firstMessage?: Message }
+  | { type: 'DELETE_CONVERSATION'; conversationId: string }
   | { type: 'ADD_TAG'; conversationId: string; tag: string }
   | { type: 'REMOVE_TAG'; conversationId: string; tag: string };
 
@@ -69,7 +71,7 @@ function reducer(state: State, action: Action): State {
 
     case 'SEND_MESSAGE': {
       const msg: Message = {
-        id: `msg${Date.now()}`,
+        id: action.msgId,
         conversation_id: action.conversationId,
         direction: 'outbound',
         body: action.body,
@@ -87,6 +89,23 @@ function reducer(state: State, action: Action): State {
         ...state,
         messages: { ...state.messages, [action.conversationId]: [...existing, msg] },
         conversations: updatedConvos,
+      };
+    }
+
+    case 'MARK_UNREAD':
+      return {
+        ...state,
+        conversations: state.conversations.map(c =>
+          c.id === action.conversationId ? { ...c, unread_count: 1 } : c
+        ),
+      };
+
+    case 'DELETE_CONVERSATION': {
+      const { [action.conversationId]: _removed, ...restMsgs } = state.messages;
+      return {
+        ...state,
+        conversations: state.conversations.filter(c => c.id !== action.conversationId),
+        messages: restMsgs,
       };
     }
 
@@ -162,12 +181,14 @@ type MessagesContextType = {
   quickReplies: QuickReplyTemplate[];
   teamMembers: TeamMember[];
   unreadCount: number;
-  sendMessage: (conversationId: string, body: string, senderName?: string) => void;
+  sendMessage: (conversationId: string, body: string, senderName?: string) => string;
   markRead: (conversationId: string) => void;
+  markUnread: (conversationId: string) => void;
   resolveConversation: (conversationId: string) => void;
   reopenConversation: (conversationId: string) => void;
   assignConversation: (conversationId: string, assignedTo: string | null) => void;
-  addConversation: (c: Omit<Conversation, 'id' | 'created_at'>, firstMessageBody?: string) => void;
+  addConversation: (c: Omit<Conversation, 'id' | 'created_at'>, firstMessageBody?: string) => string;
+  deleteConversation: (conversationId: string) => void;
   getConversation: (id: string) => Conversation | undefined;
   getMessages: (conversationId: string) => Message[];
   getTeamMember: (id: string) => TeamMember | undefined;
@@ -188,8 +209,18 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     [state.conversations]
   );
 
-  function sendMessage(conversationId: string, body: string, senderName = 'You') {
-    dispatch({ type: 'SEND_MESSAGE', conversationId, body, senderName });
+  function sendMessage(conversationId: string, body: string, senderName = 'You'): string {
+    const msgId = `msg${Date.now()}`;
+    dispatch({ type: 'SEND_MESSAGE', conversationId, body, senderName, msgId });
+    return msgId;
+  }
+
+  function markUnread(conversationId: string) {
+    dispatch({ type: 'MARK_UNREAD', conversationId });
+  }
+
+  function deleteConversation(conversationId: string) {
+    dispatch({ type: 'DELETE_CONVERSATION', conversationId });
   }
 
   function markRead(conversationId: string) {
@@ -208,7 +239,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'ASSIGN', conversationId, assignedTo });
   }
 
-  function addConversation(data: Omit<Conversation, 'id' | 'created_at'>, firstMessageBody?: string) {
+  function addConversation(data: Omit<Conversation, 'id' | 'created_at'>, firstMessageBody?: string): string {
     const id = `c${Date.now()}`;
     const now = new Date().toISOString();
     const conversation: Conversation = { ...data, id, created_at: now };
@@ -216,6 +247,7 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       ? { id: `msg${Date.now()}`, conversation_id: id, direction: 'outbound', body: firstMessageBody, sender_name: 'You', sent_at: now, read: true }
       : undefined;
     dispatch({ type: 'ADD_CONVERSATION', conversation, firstMessage });
+    return id;
   }
 
   function getConversation(id: string) {
@@ -237,8 +269,8 @@ export function MessagesProvider({ children }: { children: React.ReactNode }) {
       quickReplies: state.quickReplies,
       teamMembers: state.teamMembers,
       unreadCount,
-      sendMessage, markRead, resolveConversation, reopenConversation,
-      assignConversation, addConversation,
+      sendMessage, markRead, markUnread, resolveConversation, reopenConversation,
+      assignConversation, addConversation, deleteConversation,
       getConversation, getMessages, getTeamMember,
     }}>
       {children}

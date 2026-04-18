@@ -5,6 +5,8 @@ import { supabase } from '@/lib/supabase';
 import { LeadsProvider } from '@/context/LeadsContext';
 import { MembersProvider } from '@/context/MembersContext';
 import { MessagesProvider } from '@/context/MessagesContext';
+import { ClassesProvider } from '@/context/ClassesContext';
+import { ReviewsProvider } from '@/context/ReviewsContext';
 import type { Session } from '@supabase/supabase-js';
 
 export default function RootLayout() {
@@ -37,14 +39,19 @@ export default function RootLayout() {
     <MembersProvider>
       <LeadsProvider>
         <MessagesProvider>
-          <StatusBar style="light" />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="lead/[id]" />
-            <Stack.Screen name="member/[id]" />
-            <Stack.Screen name="conversation/[id]" />
-          </Stack>
+          <ClassesProvider>
+            <ReviewsProvider>
+              <StatusBar style="light" />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="lead/[id]" />
+                <Stack.Screen name="member/[id]" />
+                <Stack.Screen name="conversation/[id]" />
+                <Stack.Screen name="class/[id]" />
+              </Stack>
+            </ReviewsProvider>
+          </ClassesProvider>
         </MessagesProvider>
       </LeadsProvider>
     </MembersProvider>

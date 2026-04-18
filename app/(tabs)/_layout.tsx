@@ -3,11 +3,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '@/lib/theme';
 import { useMessagesContext } from '@/context/MessagesContext';
+import { useReviewsContext } from '@/context/ReviewsContext';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 function TabIcon({ name, color }: { name: IoniconName; color: string }) {
   return <Ionicons name={name} size={22} color={color} />;
+}
+
+function ReviewsTabIcon({ color }: { color: string }) {
+  const { unansweredCount } = useReviewsContext();
+  return (
+    <View>
+      <Ionicons name="star-outline" size={22} color={color} />
+      {unansweredCount > 0 && (
+        <View style={[badge.dot, { backgroundColor: '#FF8C00' }]}>
+          <Text style={badge.text}>{unansweredCount > 9 ? '9+' : unansweredCount}</Text>
+        </View>
+      )}
+    </View>
+  );
 }
 
 function MessageTabIcon({ color }: { color: string }) {
@@ -85,14 +100,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="classes"
+        options={{
+          title: 'Classes',
+          tabBarIcon: ({ color }) => <TabIcon name="calendar-outline" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
           tabBarIcon: ({ color }) => <TabIcon name="settings-outline" color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="reviews"
+        options={{
+          title: 'Reviews',
+          tabBarIcon: ({ color }) => <ReviewsTabIcon color={color} />,
+        }}
+      />
       {/* Hidden from tab bar */}
-      <Tabs.Screen name="reviews" options={{ href: null }} />
       <Tabs.Screen name="campaigns" options={{ href: null }} />
     </Tabs>
   );
