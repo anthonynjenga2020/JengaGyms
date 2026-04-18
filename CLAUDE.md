@@ -7,37 +7,61 @@ Icons: `@expo/vector-icons` Ionicons
 Safe area: `react-native-safe-area-context`
 
 ## Directory layout
+Note: the working directory IS the mobile app root (`c:/Users/PC/web/JengaGyms/`), NOT a `mobile/` subfolder.
 ```
-mobile/
+JengaGyms/                   ← working directory root
 ├── app/
 │   ├── _layout.tsx          # Root layout — wraps ALL providers
 │   ├── (auth)/login.tsx     # Phone/email login
 │   ├── (tabs)/
-│   │   ├── _layout.tsx      # Tab bar (Dashboard/Leads/Members/Messages/Classes/Reviews/Settings)
-│   │   ├── index.tsx        # Dashboard
-│   │   ├── leads.tsx        # Leads list + pipeline
-│   │   ├── members.tsx      # Members list
-│   │   ├── messages.tsx     # Multi-channel inbox
-│   │   ├── classes.tsx      # Classes: day view + week grid + search + filter sheet
-│   │   ├── reviews.tsx      # Reviews: summary card + filter + reply sheet + request flow
+│   │   ├── _layout.tsx      # Tab bar (Dashboard/Leads/Members/Messages/Classes/Reviews/Settings/Campaigns)
+│   │   ├── index.tsx        # Dashboard — KPI cards, recent leads, review alerts
+│   │   ├── leads.tsx        # Leads: kanban + list view, search, filter, add/edit modal
+│   │   ├── members.tsx      # Members: list, search, filter, check-in, stats bar, add modal
+│   │   ├── messages.tsx     # Multi-channel inbox (WhatsApp/SMS/Instagram/Website), open/resolved tabs
+│   │   ├── classes.tsx      # Classes: day/week/month view, schedule, create/edit/delete
+│   │   ├── reviews.tsx      # Reviews: filter, reply, request review flow
+│   │   ├── campaigns.tsx    # Campaigns list (read-only for now)
 │   │   └── settings.tsx     # Profile/billing/logout
-│   ├── lead/[id].tsx        # Lead detail
-│   ├── member/[id].tsx      # Member detail
+│   ├── lead/[id].tsx        # Lead detail + activity timeline
+│   ├── member/[id].tsx      # Member detail + payments + attendance
 │   ├── conversation/[id].tsx
 │   └── class/[id].tsx       # Class detail + attendees + waitlist
 ├── components/
-│   └── AddClassModal.tsx    # Add/edit class bottom sheet
+│   ├── CreateCampaignModal.tsx  # 4-step wizard: Type→Audience→Message→Schedule; onLaunch(MockCampaign) callback
+│   ├── AddClassModal.tsx    # Create/edit class bottom sheet
+│   ├── AddLeadModal.tsx     # Create/edit lead form
+│   ├── AddMemberModal.tsx   # Full member registration (plan, DOB, emergency contact, etc.)
+│   ├── CheckInModal.tsx     # Member check-in (QR or manual)
+│   ├── RecordPaymentModal.tsx
+│   ├── RequestReviewModal.tsx
+│   ├── LeadCard.tsx         # Compact lead display (kanban card)
+│   ├── LeadItem.tsx         # Inline lead list item
+│   ├── MemberCard.tsx       # Member card with plan, expiry, check-in badge
+│   ├── CampaignItem.tsx     # Campaign card
+│   ├── MetricCard.tsx       # KPI card (icon + label + value)
+│   └── ReviewItem.tsx       # Review with stars, reply status
 ├── context/
-│   ├── LeadsContext.tsx
-│   ├── MembersContext.tsx   # Member type has: id, name, phone, email, status, last_visit_at, plan_label
-│   ├── MessagesContext.tsx  # unreadCount for tab badge
-│   ├── ClassesContext.tsx   # GymClass, ClassAttendee, WaitlistEntry; getDerivedStatus()
-│   └── ReviewsContext.tsx   # MockReview, unansweredCount, replyToReview(id, text, resolved)
+│   ├── LeadsContext.tsx     # leads CRUD; 6 stages: new_lead→contacted→trial_booked→trial_completed→joined_gym→lost_lead
+│   ├── MembersContext.tsx   # members + payments + attendance + checkIns; checkInMember() updates streak/total_visits
+│   ├── MessagesContext.tsx  # conversations + messages + quickReplies + teamMembers; unreadCount badge
+│   ├── ClassesContext.tsx   # classes + attendees + waitlist + trainers; getDerivedStatus()
+│   └── ReviewsContext.tsx   # reviews + sentRequests; unansweredCount badge; replyToReview()
+├── hooks/
+│   ├── useCampaigns.ts
+│   ├── useClient.ts
+│   ├── useLeads.ts
+│   └── useReviews.ts
 ├── lib/
 │   ├── supabase.ts
 │   ├── theme.ts             # colors, spacing, radius, fonts — ALWAYS import from here
-│   ├── mockMembers.ts       # MOCK_MEMBERS array (Member[])
-│   └── mockReviews.ts       # MOCK_REVIEWS (MockReview[]) — 14 reviews, Google/Facebook
+│   ├── mockData.ts          # MOCK_LEADS (8 leads, all 6 stages, with activity timelines)
+│   ├── mockMembers.ts       # MOCK_MEMBERS (9 members) + payments + attendance
+│   ├── mockClasses.ts       # 15+ classes, 4 trainers, attendees, waitlist
+│   ├── mockMessages.ts      # 10+ conversations, 3 team members, 10 quick reply templates
+│   ├── mockReviews.ts       # 8+ reviews, Google/Facebook
+│   ├── mockCampaigns.ts
+│   └── mockReviewRequests.ts
 └── supabase/schema.sql
 ```
 
@@ -105,4 +129,4 @@ Animated.spring(slideAnim, { toValue: visible ? 0 : -80, useNativeDriver: true }
 ## Key git info
 - Repo: anthonynjenga2020/jengasystems
 - Branch: claude/build-mobile-app-HEPYM
-- Dev: `cd mobile && npx expo start`
+- Dev: `npx expo start` (run from `c:/Users/PC/web/JengaGyms/`)

@@ -1,5 +1,5 @@
 export type CampaignStatus = 'active' | 'scheduled' | 'completed' | 'draft' | 'paused';
-export type CampaignType = 'sms_broadcast' | 'follow_up' | 'reactivation' | 'promotion' | 'event';
+export type CampaignType = 'sms_broadcast' | 'follow_up' | 'reactivation' | 'promotion' | 'event' | 'review_request';
 
 export interface MockCampaign {
   id: string;
@@ -23,7 +23,8 @@ export const CAMPAIGN_TYPE_META: Record<
   follow_up:     { label: 'Follow-up Sequence', emoji: '🔁', color: '#A855F7' },
   reactivation:  { label: 'Reactivation',       emoji: '🎯', color: '#FF8C00' },
   promotion:     { label: 'Promotion',          emoji: '🎉', color: '#33D169' },
-  event:         { label: 'Event',              emoji: '📅', color: '#EC4899' },
+  event:          { label: 'Event',              emoji: '📅', color: '#EC4899' },
+  review_request: { label: 'Review Request',     emoji: '🌟', color: '#FFD700' },
 };
 
 export const CAMPAIGN_STATUS_META: Record<

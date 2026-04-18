@@ -120,8 +120,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <ReviewsTabIcon color={color} />,
         }}
       />
-      {/* Hidden from tab bar */}
-      <Tabs.Screen name="campaigns" options={{ href: null }} />
+      <Tabs.Screen
+        name="campaigns"
+        options={{
+          title: 'Marketing',
+          tabBarIcon: ({ color }) => <TabIcon name="megaphone-outline" color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
