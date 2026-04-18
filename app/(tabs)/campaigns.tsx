@@ -7,8 +7,9 @@ import {
   Pressable,
   Modal,
   Animated,
+  TextInput,
 } from 'react-native';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import RNAnimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
@@ -22,6 +23,8 @@ import {
   type CampaignStatus,
 } from '@/lib/mockCampaigns';
 import { CreateCampaignModal } from '@/components/CreateCampaignModal';
+import { AutomationsTab } from '@/components/AutomationsTab';
+import { BroadcastsTab } from '@/components/BroadcastsTab';
 
 // ── Counter animation ─────────────────────────────────────────────────────────
 
@@ -291,6 +294,7 @@ function CampaignsListTab({ extraCampaigns, onOpenCreate }: { extraCampaigns: Mo
   const [filter, setFilter] = useState<CampaignStatus | 'all'>('all');
   const [sort, setSort] = useState<SortOption>('newest');
   const [showSort, setShowSort] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [listKey, setListKey] = useState(0);
 
   function handleFilter(f: CampaignStatus | 'all') {
@@ -299,13 +303,26 @@ function CampaignsListTab({ extraCampaigns, onOpenCreate }: { extraCampaigns: Mo
   }
 
   const allCampaigns = [...extraCampaigns, ...MOCK_CAMPAIGNS];
-  const filtered = allCampaigns
-    .filter(c => filter === 'all' || c.status === filter)
-    .sort((a, b) => {
-      if (sort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      if (sort === 'best') return b.conversions - a.conversions;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return allCampaigns
+      .filter(c => {
+        const matchStatus = filter === 'all' || c.status === filter;
+        const matchSearch = !q ||
+          c.name.toLowerCase().includes(q) ||
+          CAMPAIGN_TYPE_META[c.type].label.toLowerCase().includes(q);
+        return matchStatus && matchSearch;
+      })
+      .sort((a, b) => {
+        if (sort === 'oldest') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        if (sort === 'best') return b.conversions - a.conversions;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+  }, [allCampaigns.length, filter, sort, searchQuery]);
+
+  const hasAnyCampaigns = allCampaigns.length > 0;
+  const isFiltered = filter !== 'all' || searchQuery.trim().length > 0;
 
   return (
     <>
@@ -337,14 +354,41 @@ function CampaignsListTab({ extraCampaigns, onOpenCreate }: { extraCampaigns: Mo
         />
       </View>
 
-      {/* Cards */}
-      {filtered.length === 0 ? (
-        <RNAnimated.View entering={FadeIn.duration(200)} style={styles.emptyState}>
-          <Ionicons name="megaphone-outline" size={44} color={colors.textMuted} />
-          <Text style={styles.emptyTitle}>No campaigns yet</Text>
-          <TouchableOpacity style={styles.emptyBtn} onPress={onOpenCreate}>
-            <Text style={styles.emptyBtnText}>Create your first campaign +</Text>
+      {/* Search bar */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search-outline" size={15} color={colors.textMuted} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search campaigns..."
+          placeholderTextColor={colors.textMuted}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={16} color={colors.textMuted} />
           </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Cards or empty states */}
+      {filtered.length === 0 ? (
+        <RNAnimated.View key="empty" entering={FadeIn.duration(200)} style={styles.emptyState}>
+          {isFiltered ? (
+            <>
+              <Ionicons name="search-outline" size={44} color={colors.textMuted} />
+              <Text style={styles.emptyTitle}>No campaigns found</Text>
+              <Text style={styles.emptySubtitle}>Try a different search or filter</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="megaphone-outline" size={44} color={colors.textMuted} />
+              <Text style={styles.emptyTitle}>No campaigns yet</Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={onOpenCreate}>
+                <Text style={styles.emptyBtnText}>Create your first campaign +</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </RNAnimated.View>
       ) : (
         <View key={listKey} style={styles.cardList}>
@@ -354,6 +398,192 @@ function CampaignsListTab({ extraCampaigns, onOpenCreate }: { extraCampaigns: Mo
         </View>
       )}
     </>
+  );
+}
+
+// ── Summary Card ─────────────────────────────────────────────────────────────
+
+const CHART_H = 52;
+
+function WeekBar({ value, maxValue, delay, expanded }: {
+  value: number; maxValue: number; delay: number; expanded: boolean;
+}) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (expanded) {
+      anim.setValue(0);
+      Animated.timing(anim, {
+        toValue: maxValue > 0 ? value / maxValue : 0,
+        duration: 550,
+        delay,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [expanded]);
+  return (
+    <View style={{ flex: 1, height: CHART_H, justifyContent: 'flex-end', alignItems: 'center', gap: 4 }}>
+      <Animated.View
+        style={{
+          width: '72%',
+          borderTopLeftRadius: 4,
+          borderTopRightRadius: 4,
+          backgroundColor: colors.primary + '55',
+          borderWidth: 1,
+          borderBottomWidth: 0,
+          borderColor: colors.primary,
+          height: anim.interpolate({ inputRange: [0, 1], outputRange: [0, CHART_H] }),
+        }}
+      />
+    </View>
+  );
+}
+
+function ChannelBar({ pct, delay, expanded }: { pct: number; delay: number; expanded: boolean }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (expanded) {
+      anim.setValue(0);
+      Animated.timing(anim, { toValue: pct, duration: 700, delay, useNativeDriver: false }).start();
+    }
+  }, [expanded]);
+  return (
+    <View style={styles.channelTrack}>
+      <Animated.View
+        style={[
+          styles.channelFill,
+          {
+            width: anim.interpolate({
+              inputRange: [0, 100], outputRange: ['0%', '100%'], extrapolate: 'clamp',
+            }),
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
+function SummaryCard({ campaigns }: { campaigns: MockCampaign[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const expandAnim = useRef(new Animated.Value(0)).current;
+
+  function toggle() {
+    const toValue = expanded ? 0 : 1;
+    Animated.timing(expandAnim, { toValue, duration: 280, useNativeDriver: false }).start();
+    setExpanded(prev => !prev);
+  }
+
+  const weeklyData = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    return [
+      { label: 'Wk 1', start: new Date(y, m, 1),  end: new Date(y, m, 7) },
+      { label: 'Wk 2', start: new Date(y, m, 8),  end: new Date(y, m, 14) },
+      { label: 'Wk 3', start: new Date(y, m, 15), end: new Date(y, m, 21) },
+      { label: 'Wk 4', start: new Date(y, m, 22), end: new Date(y, m + 1, 0) },
+    ].map(w => ({
+      label: w.label,
+      value: campaigns.filter(c => {
+        const d = new Date(c.created_at);
+        return d >= w.start && d <= w.end;
+      }).length,
+    }));
+  }, [campaigns.length]);
+
+  const maxWeek = Math.max(...weeklyData.map(d => d.value), 1);
+
+  const bestCampaign = useMemo(
+    () => [...campaigns].sort((a, b) => b.conversions - a.conversions)[0],
+    [campaigns.length],
+  );
+
+  const totalReach = useMemo(
+    () => campaigns.reduce((s, c) => s + c.recipients, 0),
+    [campaigns.length],
+  );
+
+  return (
+    <RNAnimated.View entering={FadeInDown.delay(300).springify()} style={styles.summaryCard}>
+      {/* Always-visible header */}
+      <TouchableOpacity style={styles.summaryHeader} onPress={toggle} activeOpacity={0.8}>
+        <View style={styles.summaryHeaderLeft}>
+          <Ionicons name="bar-chart-outline" size={16} color={colors.primary} />
+          <Text style={styles.summaryTitle}>This Month at a Glance</Text>
+        </View>
+        <Animated.View
+          style={{
+            transform: [{
+              rotate: expandAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }),
+            }],
+          }}
+        >
+          <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+        </Animated.View>
+      </TouchableOpacity>
+
+      {/* Collapsible body */}
+      <Animated.View
+        style={{
+          maxHeight: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 340] }),
+          overflow: 'hidden',
+        }}
+      >
+        <View style={styles.summaryBody}>
+          {/* Mini bar chart */}
+          <View>
+            <Text style={styles.summarySection}>Campaigns This Month</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: CHART_H, gap: 6, marginTop: 8 }}>
+              {weeklyData.map((d, i) => (
+                <WeekBar key={i} value={d.value} maxValue={maxWeek} delay={i * 80} expanded={expanded} />
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 4 }}>
+              {weeklyData.map((d, i) => (
+                <Text key={i} style={[styles.chartAxisLabel, { flex: 1 }]}>{d.label}</Text>
+              ))}
+            </View>
+          </View>
+
+          {/* Best performing */}
+          {bestCampaign && bestCampaign.conversions > 0 && (
+            <View style={styles.bestRow}>
+              <Ionicons name="trophy-outline" size={16} color={colors.warning} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bestLabel}>Best Campaign</Text>
+                <Text style={styles.bestName} numberOfLines={1}>{bestCampaign.name}</Text>
+              </View>
+              <Text style={styles.bestStat}>{bestCampaign.conversions} conversions</Text>
+            </View>
+          )}
+
+          {/* Channel breakdown */}
+          <View style={{ gap: 8 }}>
+            <Text style={styles.summarySection}>Channel Breakdown</Text>
+            <View style={styles.channelRow}>
+              <Text style={styles.channelLabel}>📱 SMS</Text>
+              <ChannelBar pct={94} delay={100} expanded={expanded} />
+              <Text style={styles.channelPct}>94%</Text>
+            </View>
+            <View style={styles.channelRow}>
+              <Text style={styles.channelLabel}>💬 WhatsApp</Text>
+              <View style={[styles.channelTrack, { backgroundColor: colors.border }]}>
+                <View style={[styles.channelFill, { width: '0%' }]} />
+              </View>
+              <Text style={[styles.channelPct, { color: colors.textMuted }]}>Soon</Text>
+            </View>
+          </View>
+
+          {/* Audience reach */}
+          <View style={styles.reachRow}>
+            <Ionicons name="people-outline" size={15} color={colors.info} />
+            <Text style={styles.reachText}>
+              <Text style={styles.reachNum}>{totalReach.toLocaleString()}</Text>
+              {' '}unique contacts reached this month
+            </Text>
+          </View>
+        </View>
+      </Animated.View>
+    </RNAnimated.View>
   );
 }
 
@@ -425,6 +655,9 @@ export default function MarketingScreen() {
           />
         </ScrollView>
 
+        {/* Summary card */}
+        <SummaryCard campaigns={[...extraCampaigns, ...MOCK_CAMPAIGNS]} />
+
         {/* Tab bar */}
         <View style={styles.tabBar}>
           {MAIN_TABS.map(tab => (
@@ -449,8 +682,8 @@ export default function MarketingScreen() {
               onOpenCreate={() => setShowNew(true)}
             />
           )}
-          {activeTab === 'Automations' && <ComingSoonTab label="Automations" />}
-          {activeTab === 'Broadcasts' && <ComingSoonTab label="Broadcasts" />}
+          {activeTab === 'Automations' && <AutomationsTab />}
+          {activeTab === 'Broadcasts' && <BroadcastsTab />}
         </Animated.View>
       </ScrollView>
 
@@ -671,6 +904,109 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   emptyBtnText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+
+  // Search bar
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: spacing.md,
+    marginTop: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+  },
+
+  emptySubtitle: { fontSize: 13, color: colors.textMuted, textAlign: 'center' },
+
+  // Summary card
+  summaryCard: {
+    marginHorizontal: spacing.md,
+    marginBottom: 6,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  summaryHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  summaryTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
+  summaryBody: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    gap: 14,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  summarySection: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  chartAxisLabel: { fontSize: 10, color: colors.textMuted, textAlign: 'center' },
+
+  // Best performing
+  bestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.warning + '12',
+    borderRadius: radius.sm,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.warning + '30',
+  },
+  bestLabel: { fontSize: 10, fontWeight: '600', color: colors.textMuted },
+  bestName: { fontSize: 13, fontWeight: '700', color: colors.text },
+  bestStat: { fontSize: 12, fontWeight: '700', color: colors.warning },
+
+  // Channel breakdown
+  channelRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  channelLabel: { fontSize: 12, fontWeight: '500', color: colors.textSecondary, width: 90 },
+  channelTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: colors.border,
+    borderRadius: radius.full,
+    overflow: 'hidden',
+  },
+  channelFill: {
+    height: '100%',
+    backgroundColor: colors.primary,
+    borderRadius: radius.full,
+  },
+  channelPct: { fontSize: 11, fontWeight: '700', color: colors.primary, width: 34, textAlign: 'right' },
+
+  // Audience reach
+  reachRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.info + '12',
+    borderRadius: radius.sm,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.info + '30',
+  },
+  reachText: { fontSize: 13, color: colors.textSecondary, flex: 1 },
+  reachNum: { fontSize: 13, fontWeight: '700', color: colors.info },
 
   // Coming soon
   comingSoon: {

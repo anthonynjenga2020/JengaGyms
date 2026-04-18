@@ -1159,6 +1159,7 @@ export function CreateCampaignModal({ visible, onClose, onLaunch }: Props) {
         status: wizState.sendTiming === 'now' ? 'active' : 'scheduled',
         type: wizState.campaignType ?? 'sms_broadcast',
         sent: 0,
+        delivered: 0,
         total: audience.total,
         responses: 0,
         conversions: 0,
