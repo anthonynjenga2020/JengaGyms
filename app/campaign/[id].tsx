@@ -15,13 +15,15 @@ import RNAnimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '@/lib/theme';
 import {
-  MOCK_CAMPAIGNS,
   MOCK_CAMPAIGN_DETAILS,
   CAMPAIGN_TYPE_META,
   CAMPAIGN_STATUS_META,
+  type MockCampaign,
   type CampaignStatus,
   type CampaignRecipient,
 } from '@/lib/mockCampaigns';
+import { useClient } from '@/hooks/useClient';
+import { supabase } from '@/lib/supabase';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -527,10 +529,32 @@ function MessageTab({ campaignId }: { campaignId: string }) {
 export default function CampaignDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const campaign = MOCK_CAMPAIGNS.find(c => c.id === id);
+  const { client } = useClient();
 
+  const [campaign, setCampaign] = useState<MockCampaign | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [localStatus, setLocalStatus] = useState<CampaignStatus | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    supabase.from('campaigns').select('*').eq('id', id).single().then(({ data }) => {
+      if (!data) return;
+      setCampaign({
+        id: data.id,
+        name: data.name,
+        status: data.status as CampaignStatus,
+        type: data.type as MockCampaign['type'],
+        total: data.recipient_count ?? 0,
+        sent: data.sent_count ?? 0,
+        delivered: data.delivered_count ?? 0,
+        responses: data.response_count ?? 0,
+        conversions: data.conversion_count ?? 0,
+        recipients: data.recipient_count ?? 0,
+        created_at: data.created_at,
+        scheduled_at: data.scheduled_at ?? undefined,
+      });
+    });
+  }, [id]);
   const [showMenu, setShowMenu] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);

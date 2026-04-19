@@ -230,13 +230,15 @@ update leads set status = 'new_lead'   where status = 'new';
 update leads set status = 'joined_gym' where status = 'converted';
 update leads set status = 'lost_lead'  where status = 'lost';
 
-alter table leads add constraint if not exists leads_status_check
+alter table leads drop constraint if exists leads_status_check;
+alter table leads add constraint leads_status_check
   check (status in ('new_lead','contacted','trial_booked','trial_completed','joined_gym','lost_lead'));
 
 update leads set source = 'website' where source = 'website_form';
 update leads set source = 'other'   where source = 'whatsapp';
 
-alter table leads add constraint if not exists leads_source_check
+alter table leads drop constraint if exists leads_source_check;
+alter table leads add constraint leads_source_check
   check (source in ('website','instagram','referral','walk_in','google_ads','other'));
 
 -- ============================================================
@@ -245,7 +247,8 @@ alter table leads add constraint if not exists leads_source_check
 
 update campaigns set type = 'sms_broadcast' where type in ('sms','email','whatsapp');
 
-alter table campaigns add constraint if not exists campaigns_type_check
+alter table campaigns drop constraint if exists campaigns_type_check;
+alter table campaigns add constraint campaigns_type_check
   check (type in ('sms_broadcast','follow_up','reactivation','promotion','event','review_request'));
 
 alter table campaigns add column if not exists delivered_count  int not null default 0;

@@ -29,7 +29,6 @@ import {
   LEAD_INTERESTS,
 } from '@/lib/theme';
 import type { LeadStage } from '@/lib/theme';
-import type { LeadActivity } from '@/context/LeadsContext';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -329,14 +328,15 @@ export default function LeadDetailScreen() {
   const avatarColor = getAvatarColor(lead.name);
 
   async function handleCall() {
-    if (lead.phone) await Linking.openURL(`tel:${lead.phone}`);
+    if (lead?.phone) await Linking.openURL(`tel:${lead.phone}`);
   }
 
   async function handleSMS() {
-    if (lead.phone) await Linking.openURL(`sms:${lead.phone}`);
+    if (lead?.phone) await Linking.openURL(`sms:${lead.phone}`);
   }
 
   async function handleBookTrial() {
+    if (!lead) return;
     setChangingStage(true);
     updateLead(lead.id, { status: 'trial_booked', last_contacted_at: new Date().toISOString() });
     await new Promise(r => setTimeout(r, 300));
@@ -345,6 +345,7 @@ export default function LeadDetailScreen() {
   }
 
   function handleAddNote(note: string) {
+    if (!lead) return;
     const existing = lead.notes ? `${lead.notes}\n\n${note}` : note;
     updateLead(lead.id, { notes: existing });
   }
