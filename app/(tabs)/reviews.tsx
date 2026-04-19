@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '@/lib/theme';
 import { useReviewsContext } from '@/context/ReviewsContext';
 import { RequestReviewModal } from '@/components/RequestReviewModal';
-import type { MockReview } from '@/lib/mockReviews';
+import type { Review as MockReview } from '@/lib/supabase';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 

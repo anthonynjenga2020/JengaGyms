@@ -340,6 +340,7 @@ export default function ConversationScreen() {
   const {
     getConversation, getMessages, sendMessage, markRead,
     resolveConversation, reopenConversation, getTeamMember,
+    loadConversationMessages,
   } = useMessagesContext();
 
   const conv = getConversation(id);
@@ -353,6 +354,8 @@ export default function ConversationScreen() {
 
   const flatListRef  = useRef<FlatList>(null);
   const infoHeight   = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => { if (id) loadConversationMessages(id); }, [id]);
 
   // Mark as read on open
   useEffect(() => { if (id) markRead(id); }, [id]);
@@ -373,12 +376,11 @@ export default function ConversationScreen() {
     }).start();
   }, [infoExpanded]);
 
-  function handleSend() {
+  async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed || !conv) return;
-    const msgId = sendMessage(id, trimmed);
     setText('');
-    // Mark as pending, clear after 1s
+    const msgId = await sendMessage(id, trimmed);
     setPendingIds(prev => new Set(prev).add(msgId));
     setTimeout(() => {
       setPendingIds(prev => {

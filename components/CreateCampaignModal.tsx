@@ -25,9 +25,12 @@ import {
   type MockCampaign,
   type CampaignType,
 } from '@/lib/mockCampaigns';
-import { MOCK_MEMBERS } from '@/lib/mockMembers';
-import { MOCK_LEADS } from '@/lib/mockData';
-import { MOCK_QUICK_REPLIES } from '@/lib/mockMessages';
+import { useMembersContext } from '@/context/MembersContext';
+import { useLeadsContext } from '@/context/LeadsContext';
+import { useMessagesContext } from '@/context/MessagesContext';
+import type { Member } from '@/context/MembersContext';
+import type { AppLead } from '@/context/LeadsContext';
+import { supabase } from '@/lib/supabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -113,11 +116,15 @@ function useCountUp(target: number, duration = 600) {
   return count;
 }
 
-function calcAudience(state: WizardState): { total: number; members: number; leads: number } {
+function calcAudience(
+  state: WizardState,
+  allMembers: Member[],
+  allLeads: AppLead[],
+): { total: number; members: number; leads: number } {
   let members = 0, leads = 0;
 
   if (state.audienceType === 'members' || state.audienceType === 'both') {
-    members = MOCK_MEMBERS.filter(m => {
+    members = allMembers.filter(m => {
       if (state.memberStatus === 'all_active' && m.status !== 'active') return false;
       if (state.memberStatus === 'expiring_soon') {
         if (m.status !== 'active') return false;
@@ -141,7 +148,7 @@ function calcAudience(state: WizardState): { total: number; members: number; lea
   }
 
   if (state.audienceType === 'leads' || state.audienceType === 'both') {
-    leads = MOCK_LEADS.filter(l => {
+    leads = allLeads.filter(l => {
       if (state.leadStage !== 'all' && l.status !== state.leadStage) return false;
       if (state.leadSource !== 'all' && l.source !== state.leadSource) return false;
       if (state.leadInterest !== 'all' && !l.interests.includes(state.leadInterest as LeadInterest)) return false;
@@ -396,7 +403,9 @@ const s1 = StyleSheet.create({
 // ── Step 2: Audience ──────────────────────────────────────────────────────────
 
 function Step2({ state, onChange }: { state: WizardState; onChange: (patch: Partial<WizardState>) => void }) {
-  const audience = calcAudience(state);
+  const { members } = useMembersContext();
+  const { leads } = useLeadsContext();
+  const audience = calcAudience(state, members, leads);
   const animCount = useCountUp(audience.total);
   const isMember = state.audienceType === 'members' || state.audienceType === 'both';
   const isLead = state.audienceType === 'leads' || state.audienceType === 'both';
@@ -558,6 +567,7 @@ const s2 = StyleSheet.create({
 // ── Step 3: Message ───────────────────────────────────────────────────────────
 
 function Step3({ state, onChange }: { state: WizardState; onChange: (patch: Partial<WizardState>) => void }) {
+  const { quickReplies } = useMessagesContext();
   const [showTemplates, setShowTemplates] = useState(false);
   const selectionRef = useRef({ start: 0, end: 0 });
   const textInputRef = useRef<TextInput>(null);
@@ -724,7 +734,7 @@ function Step3({ state, onChange }: { state: WizardState; onChange: (patch: Part
 
           {showTemplates && (
             <View style={s3.templateList}>
-              {MOCK_QUICK_REPLIES.map(qr => (
+              {quickReplies.map(qr => (
                 <TouchableOpacity key={qr.id} style={s3.templateItem} onPress={() => insertTemplate(qr.body)}>
                   <Text style={s3.templateItemTitle}>{qr.title}</Text>
                   <Text style={s3.templateItemBody} numberOfLines={2}>{qr.body}</Text>
@@ -1085,12 +1095,15 @@ const INITIAL_STATE: WizardState = {
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onLaunch: (campaign: MockCampaign) => void;
+  onLaunch: () => void;
+  clientId?: string;
 };
 
-export function CreateCampaignModal({ visible, onClose, onLaunch }: Props) {
+export function CreateCampaignModal({ visible, onClose, onLaunch, clientId }: Props) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const { members } = useMembersContext();
+  const { leads } = useLeadsContext();
   const slideAnim = useRef(new Animated.Value(0)).current;
   const sheetAnim = useRef(new Animated.Value(800)).current;
   const [step, setStep] = useState(1);
@@ -1098,7 +1111,7 @@ export function CreateCampaignModal({ visible, onClose, onLaunch }: Props) {
   const [launching, setLaunching] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const audience = calcAudience(wizState);
+  const audience = calcAudience(wizState, members, leads);
 
   // Open/close sheet
   useEffect(() => {
@@ -1148,29 +1161,40 @@ export function CreateCampaignModal({ visible, onClose, onLaunch }: Props) {
     return true;
   }
 
-  function handleLaunch() {
+  async function handleLaunch() {
+    if (!clientId) return;
     setLaunching(true);
-    setTimeout(() => {
-      setLaunching(false);
+
+    const scheduledAt = wizState.sendTiming === 'scheduled' && wizState.scheduledDate
+      ? (() => {
+          const d = new Date(wizState.scheduledDate!);
+          if (wizState.scheduledTime) {
+            const [h, m] = wizState.scheduledTime.split(':').map(Number);
+            d.setHours(h, m, 0, 0);
+          }
+          return d.toISOString();
+        })()
+      : null;
+
+    const { error } = await supabase.from('campaigns').insert({
+      client_id: clientId,
+      name: wizState.campaignName || 'New Campaign',
+      type: wizState.campaignType ?? 'sms_broadcast',
+      channel: wizState.channel,
+      status: wizState.sendTiming === 'now' ? 'active' : 'scheduled',
+      message: wizState.campaignType === 'follow_up'
+        ? wizState.followUpSteps[0]?.text ?? ''
+        : wizState.messageText,
+      recipient_count: audience.total,
+      audience_size: audience.total,
+      scheduled_at: scheduledAt,
+    });
+
+    setLaunching(false);
+    if (!error) {
       setSuccess(true);
-      const newCampaign: MockCampaign = {
-        id: `c${Date.now()}`,
-        name: wizState.campaignName || 'New Campaign',
-        status: wizState.sendTiming === 'now' ? 'active' : 'scheduled',
-        type: wizState.campaignType ?? 'sms_broadcast',
-        sent: 0,
-        delivered: 0,
-        total: audience.total,
-        responses: 0,
-        conversions: 0,
-        recipients: audience.total,
-        created_at: new Date().toISOString(),
-        ...(wizState.sendTiming === 'scheduled' && wizState.scheduledDate
-          ? { scheduled_at: wizState.scheduledDate.toISOString() }
-          : {}),
-      };
-      onLaunch(newCampaign);
-    }, 1500);
+      onLaunch();
+    }
   }
 
   const nextDisabled = !canNext();

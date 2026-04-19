@@ -16,15 +16,35 @@ import RNAnimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '@/lib/theme';
 import {
-  MOCK_CAMPAIGNS,
   CAMPAIGN_TYPE_META,
   CAMPAIGN_STATUS_META,
   type MockCampaign,
   type CampaignStatus,
 } from '@/lib/mockCampaigns';
+import { useClient } from '@/hooks/useClient';
+import { useCampaigns } from '@/hooks/useCampaigns';
+import type { Campaign } from '@/lib/supabase';
 import { CreateCampaignModal } from '@/components/CreateCampaignModal';
 import { AutomationsTab } from '@/components/AutomationsTab';
 import { BroadcastsTab } from '@/components/BroadcastsTab';
+
+// Map DB Campaign type → MockCampaign shape used by UI components
+function toMockCampaign(c: Campaign): MockCampaign {
+  return {
+    id: c.id,
+    name: c.name,
+    status: c.status as CampaignStatus,
+    type: c.type as MockCampaign['type'],
+    sent: c.sent_count,
+    delivered: c.delivered_count,
+    total: c.audience_size,
+    responses: c.response_count,
+    conversions: c.conversion_count,
+    recipients: c.recipient_count,
+    created_at: c.created_at,
+    scheduled_at: c.scheduled_at ?? undefined,
+  };
+}
 
 // ── Counter animation ─────────────────────────────────────────────────────────
 
@@ -290,7 +310,7 @@ const FILTERS: { key: CampaignStatus | 'all'; label: string }[] = [
   { key: 'paused',    label: 'Paused' },
 ];
 
-function CampaignsListTab({ extraCampaigns, onOpenCreate }: { extraCampaigns: MockCampaign[]; onOpenCreate: () => void }) {
+function CampaignsListTab({ campaigns: allCampaigns, onOpenCreate }: { campaigns: MockCampaign[]; onOpenCreate: () => void }) {
   const [filter, setFilter] = useState<CampaignStatus | 'all'>('all');
   const [sort, setSort] = useState<SortOption>('newest');
   const [showSort, setShowSort] = useState(false);
@@ -301,8 +321,6 @@ function CampaignsListTab({ extraCampaigns, onOpenCreate }: { extraCampaigns: Mo
     setFilter(f);
     setListKey(k => k + 1);
   }
-
-  const allCampaigns = [...extraCampaigns, ...MOCK_CAMPAIGNS];
 
   const filtered = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -596,11 +614,13 @@ export default function MarketingScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<MainTab>('Campaigns');
   const [showNew, setShowNew] = useState(false);
-  const [extraCampaigns, setExtraCampaigns] = useState<MockCampaign[]>([]);
   const tabFade = useRef(new Animated.Value(1)).current;
+  const { client } = useClient();
+  const { campaigns: dbCampaigns, refresh: refreshCampaigns } = useCampaigns(client?.id);
+  const mappedCampaigns = useMemo(() => dbCampaigns.map(toMockCampaign), [dbCampaigns]);
 
-  function handleLaunch(campaign: MockCampaign) {
-    setExtraCampaigns(prev => [campaign, ...prev]);
+  function handleLaunch() {
+    refreshCampaigns();
   }
 
   function switchTab(tab: MainTab) {
@@ -656,7 +676,7 @@ export default function MarketingScreen() {
         </ScrollView>
 
         {/* Summary card */}
-        <SummaryCard campaigns={[...extraCampaigns, ...MOCK_CAMPAIGNS]} />
+        <SummaryCard campaigns={mappedCampaigns} />
 
         {/* Tab bar */}
         <View style={styles.tabBar}>
@@ -678,7 +698,7 @@ export default function MarketingScreen() {
         <Animated.View style={{ opacity: tabFade }}>
           {activeTab === 'Campaigns' && (
             <CampaignsListTab
-              extraCampaigns={extraCampaigns}
+              campaigns={mappedCampaigns}
               onOpenCreate={() => setShowNew(true)}
             />
           )}
@@ -691,6 +711,7 @@ export default function MarketingScreen() {
         visible={showNew}
         onClose={() => setShowNew(false)}
         onLaunch={handleLaunch}
+        clientId={client?.id}
       />
     </View>
   );

@@ -506,8 +506,13 @@ export default function MemberProfileScreen() {
   const { getMember, getMemberPayments, getMemberAttendance, checkInMember, isCheckedInToday, updateMember, deleteMember } = useMembersContext();
 
   const member = getMember(id);
-  const payments = getMemberPayments(id);
-  const attendance = getMemberAttendance(id);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+
+  useEffect(() => {
+    getMemberPayments(id).then(setPayments);
+    getMemberAttendance(id).then(setAttendance);
+  }, [id]);
 
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
@@ -708,7 +713,10 @@ export default function MemberProfileScreen() {
 
       <RecordPaymentModal
         visible={paymentModalVisible}
-        onClose={() => setPaymentModalVisible(false)}
+        onClose={() => {
+          setPaymentModalVisible(false);
+          getMemberPayments(id).then(setPayments);
+        }}
         memberId={member.id}
         defaultAmount={member.billing_amount}
       />

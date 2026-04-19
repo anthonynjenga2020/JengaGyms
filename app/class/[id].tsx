@@ -905,7 +905,10 @@ export default function ClassDetailScreen() {
     getClass, getAttendees, getWaitlist, getTrainer,
     updateClass, deleteClass,
     updateAttendance, removeAttendee, removeFromWaitlist, moveWaitlistToAttendees,
+    loadClassData,
   } = useClassesContext();
+
+  useEffect(() => { loadClassData(id); }, [id]);
 
   const cls = getClass(id);
   const attendees = getAttendees(id);

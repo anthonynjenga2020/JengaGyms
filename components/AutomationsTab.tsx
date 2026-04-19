@@ -12,7 +12,9 @@ import { useRef, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import RNAnimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { colors, spacing, radius } from '@/lib/theme';
-import { MOCK_AUTOMATIONS, type MockAutomation } from '@/lib/mockAutomations';
+import type { MockAutomation } from '@/lib/mockAutomations';
+import { useAutomations } from '@/hooks/useAutomations';
+import { useClientContext } from '@/context/ClientContext';
 import { CreateAutomationSheet } from './CreateAutomationSheet';
 
 // ── Toggle switch ─────────────────────────────────────────────────────────────
@@ -218,7 +220,8 @@ function SummaryBar({ automations }: { automations: MockAutomation[] }) {
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export function AutomationsTab() {
-  const [automations, setAutomations] = useState<MockAutomation[]>(MOCK_AUTOMATIONS);
+  const { clientId } = useClientContext();
+  const { automations, toggleAutomation, createAutomation } = useAutomations(clientId);
   const [pendingPauseId, setPendingPauseId] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -237,11 +240,9 @@ export function AutomationsTab() {
     if (!auto) return;
 
     if (auto.active) {
-      // Turning off — ask for confirmation
       setPendingPauseId(id);
     } else {
-      // Turning on — immediate
-      setAutomations(prev => prev.map(a => a.id === id ? { ...a, active: true } : a));
+      toggleAutomation(id, true);
       showToast(`${auto.name} is now active`);
     }
   }
@@ -249,7 +250,7 @@ export function AutomationsTab() {
   function confirmPause() {
     if (!pendingPauseId) return;
     const auto = automations.find(a => a.id === pendingPauseId);
-    setAutomations(prev => prev.map(a => a.id === pendingPauseId ? { ...a, active: false } : a));
+    toggleAutomation(pendingPauseId, false);
     setPendingPauseId(null);
     showToast(`${auto?.name ?? 'Automation'} paused`);
   }
@@ -258,9 +259,9 @@ export function AutomationsTab() {
     setPendingPauseId(null);
   }
 
-  function handleSave(newAuto: MockAutomation) {
-    setAutomations(prev => [newAuto, ...prev]);
-    showToast(`"${newAuto.name}" automation created`);
+  async function handleSave(newAuto: MockAutomation) {
+    const created = await createAutomation(newAuto);
+    if (created) showToast(`"${created.name}" automation created`);
   }
 
   return (

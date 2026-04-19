@@ -28,8 +28,8 @@ export default function DashboardScreen() {
     setRefreshing(false);
   }
 
-  const newLeads = leads.filter(l => l.status === 'new').length;
-  const convertedLeads = leads.filter(l => l.status === 'converted').length;
+  const newLeads = leads.filter(l => l.status === 'new_lead').length;
+  const convertedLeads = leads.filter(l => l.status === 'joined_gym').length;
   const activeCampaigns = campaigns.filter(c => c.status === 'active').length;
   const unrepliedReviews = reviews.filter(r => !r.replied).length;
 

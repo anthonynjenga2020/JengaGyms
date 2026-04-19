@@ -176,7 +176,7 @@ function NewConversationSheet({ onClose }: { onClose: () => void }) {
   // Combine members + leads into a single contact list
   const allContacts: ContactEntry[] = useMemo(() => [
     ...members.map(m => ({ id: m.id, name: m.name, phone: m.phone, type: 'member' as const })),
-    ...leads.map(l => ({ id: l.id, name: l.name, phone: l.phone, type: 'lead' as const })),
+    ...leads.filter(l => l.phone).map(l => ({ id: l.id, name: l.name, phone: l.phone!, type: 'lead' as const })),
   ], [members, leads]);
 
   const filtered = useMemo(() => {
@@ -191,12 +191,12 @@ function NewConversationSheet({ onClose }: { onClose: () => void }) {
     setSelected(contact);
   }
 
-  function handleNext() {
+  async function handleNext() {
     const contactName = selected?.name ?? 'Unknown';
     const contactPhone = selected?.phone ?? manualPhone.trim();
     if (!contactPhone) return;
 
-    const newId = addConversation({
+    const newId = await addConversation({
       contact_name: contactName,
       contact_phone: contactPhone,
       contact_email: null,

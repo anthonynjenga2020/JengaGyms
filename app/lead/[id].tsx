@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import RNAnimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useLeadsContext } from '@/context/LeadsContext';
 import { AddLeadModal } from '@/components/AddLeadModal';
-import { MOCK_ACTIVITIES } from '@/lib/mockData';
+import type { LeadActivity } from '@/context/LeadsContext';
 import {
   colors,
   spacing,
@@ -248,15 +248,12 @@ const detailStyles = StyleSheet.create({
 // ── Activity Tab ──────────────────────────────────────────────────────────────
 
 function ActivityTab({ leadId }: { leadId: string }) {
-  const activities: LeadActivity[] = MOCK_ACTIVITIES[leadId] ?? [
-    {
-      id: 'default',
-      lead_id: leadId,
-      type: 'lead_created',
-      description: 'Lead added to pipeline',
-      created_at: new Date().toISOString(),
-    },
-  ];
+  const { fetchLeadActivities } = useLeadsContext();
+  const [activities, setActivities] = useState<LeadActivity[]>([]);
+
+  useEffect(() => {
+    fetchLeadActivities(leadId).then(setActivities);
+  }, [leadId]);
 
   return (
     <RNAnimated.View entering={FadeIn.duration(200)} style={actStyles.container}>

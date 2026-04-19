@@ -11,7 +11,9 @@ import { useRef, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import RNAnimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { colors, spacing, radius } from '@/lib/theme';
-import { MOCK_BROADCASTS, formatScheduledAt, type MockBroadcast } from '@/lib/mockBroadcasts';
+import { formatScheduledAt, type MockBroadcast } from '@/lib/mockBroadcasts';
+import { useBroadcasts } from '@/hooks/useBroadcasts';
+import { useClientContext } from '@/context/ClientContext';
 import { QuickBroadcastSheet } from './QuickBroadcastSheet';
 import { BroadcastDetailSheet } from './BroadcastDetailSheet';
 
@@ -173,7 +175,8 @@ function BroadcastCard({
 type SubTab = 'recent' | 'scheduled';
 
 export function BroadcastsTab() {
-  const [broadcasts, setBroadcasts] = useState<MockBroadcast[]>(MOCK_BROADCASTS);
+  const { clientId } = useClientContext();
+  const { broadcasts, createBroadcast, cancelBroadcast } = useBroadcasts(clientId);
   const [subTab, setSubTab] = useState<SubTab>('recent');
   const [showCompose, setShowCompose] = useState(false);
   const [editBroadcast, setEditBroadcast] = useState<MockBroadcast | null>(null);
@@ -206,8 +209,8 @@ export function BroadcastsTab() {
     });
   }
 
-  function handleSend(broadcast: MockBroadcast) {
-    setBroadcasts(prev => [broadcast, ...prev]);
+  async function handleSend(broadcast: MockBroadcast) {
+    await createBroadcast(broadcast);
     if (broadcast.status === 'sent') {
       showToast(`✓ Broadcast sent to ${broadcast.recipientCount} recipient${broadcast.recipientCount !== 1 ? 's' : ''}`);
       setSubTab('recent');
@@ -222,9 +225,9 @@ export function BroadcastsTab() {
     setShowCompose(true);
   }
 
-  function handleCancelScheduled() {
+  async function handleCancelScheduled() {
     if (!pendingCancelId) return;
-    setBroadcasts(prev => prev.filter(b => b.id !== pendingCancelId));
+    await cancelBroadcast(pendingCancelId);
     setPendingCancelId(null);
     showToast('Scheduled broadcast cancelled');
   }

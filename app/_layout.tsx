@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
+import { ClientProvider } from '@/context/ClientContext';
 import { LeadsProvider } from '@/context/LeadsContext';
 import { MembersProvider } from '@/context/MembersContext';
 import { MessagesProvider } from '@/context/MessagesContext';
@@ -35,7 +36,7 @@ export default function RootLayout() {
     }
   }, [initialized, session]);
 
-  return (
+  const appContent = (
     <MembersProvider>
       <LeadsProvider>
         <MessagesProvider>
@@ -44,6 +45,7 @@ export default function RootLayout() {
               <StatusBar style="light" />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(onboarding)" />
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="lead/[id]" />
                 <Stack.Screen name="member/[id]" />
@@ -56,4 +58,14 @@ export default function RootLayout() {
       </LeadsProvider>
     </MembersProvider>
   );
+
+  if (session?.user?.id) {
+    return (
+      <ClientProvider userId={session.user.id}>
+        {appContent}
+      </ClientProvider>
+    );
+  }
+
+  return appContent;
 }
