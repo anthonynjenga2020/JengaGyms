@@ -87,13 +87,18 @@ export function getStageConfig(key: LeadStage) {
   return LEAD_STAGES.find(s => s.key === key) ?? LEAD_STAGES[0];
 }
 
-// Legacy aliases kept for other screens
-export const leadStatusConfig = {
-  new:       { color: colors.info,    label: 'New' },
-  contacted: { color: colors.warning, label: 'Contacted' },
-  converted: { color: colors.success, label: 'Converted' },
-  lost:      { color: colors.danger,  label: 'Lost' },
-} as const;
+export const leadStatusConfig: Record<string, { color: string; label: string }> = {
+  new_lead:        { color: colors.info,          label: 'New Lead' },
+  contacted:       { color: colors.warning,        label: 'Contacted' },
+  trial_booked:    { color: colors.primary,        label: 'Trial Booked' },
+  trial_completed: { color: colors.accent,         label: 'Trial Done' },
+  joined_gym:      { color: colors.success,        label: 'Joined' },
+  lost_lead:       { color: colors.danger,         label: 'Lost' },
+  // legacy fallbacks
+  new:             { color: colors.info,           label: 'New' },
+  converted:       { color: colors.success,        label: 'Converted' },
+  lost:            { color: colors.danger,         label: 'Lost' },
+};
 
 export const campaignTypeConfig = {
   sms:       { label: 'SMS',       icon: 'chatbubble-outline' },

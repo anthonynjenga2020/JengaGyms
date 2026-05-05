@@ -8,7 +8,7 @@ type Props = {
 };
 
 export function LeadItem({ lead }: Props) {
-  const config = leadStatusConfig[lead.status];
+  const config = leadStatusConfig[lead.status] ?? { color: colors.textMuted, label: lead.status };
 
   function timeAgo(dateStr: string) {
     const diff = Date.now() - new Date(dateStr).getTime();

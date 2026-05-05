@@ -1,4 +1,4 @@
-# JengaPulse Mobile — Claude Context
+# JengaGyms Mobile — Claude Context
 
 ## Stack
 React Native + Expo 52 + Expo Router (file-based) + TypeScript  
@@ -127,6 +127,5 @@ Animated.spring(slideAnim, { toValue: visible ? 0 : -80, useNativeDriver: true }
 - Reviews tab: orange badge from `useReviewsContext().unansweredCount`
 
 ## Key git info
-- Repo: anthonynjenga2020/jengasystems
-- Branch: claude/build-mobile-app-HEPYM
+- Repo: anthonynjenga2020/Jengagyms       
 - Dev: `npx expo start` (run from `c:/Users/PC/web/JengaGyms/`)
