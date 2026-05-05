@@ -1,12 +1,53 @@
 import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
-// Supabase Auth storage adapter using SecureStore (encrypted, device-local)
-const ExpoSecureStoreAdapter = {
-  getItem: (key: string) => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+// Platform-aware storage adapter:
+// - Native (iOS/Android): expo-secure-store (encrypted keychain)
+// - Web browser: localStorage
+// - Web SSR (Node.js): in-memory fallback (no persistence, only during server render)
+const createStorageAdapter = () => {
+  if (Platform.OS === 'web') {
+    // Guard against SSR / Node.js environment where localStorage doesn't exist
+    const isLocalStorageAvailable =
+      typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
+
+    if (isLocalStorageAvailable) {
+      return {
+        getItem: (key: string) => Promise.resolve(localStorage.getItem(key)),
+        setItem: (key: string, value: string) => {
+          localStorage.setItem(key, value);
+          return Promise.resolve();
+        },
+        removeItem: (key: string) => {
+          localStorage.removeItem(key);
+          return Promise.resolve();
+        },
+      };
+    }
+
+    // SSR fallback: in-memory (session won't persist across reloads in this path)
+    const memStore: Record<string, string> = {};
+    return {
+      getItem: (key: string) => Promise.resolve(memStore[key] ?? null),
+      setItem: (key: string, value: string) => {
+        memStore[key] = value;
+        return Promise.resolve();
+      },
+      removeItem: (key: string) => {
+        delete memStore[key];
+        return Promise.resolve();
+      },
+    };
+  }
+
+  // Native: use expo-secure-store
+  const SecureStore = require('expo-secure-store');
+  return {
+    getItem: (key: string) => SecureStore.getItemAsync(key),
+    setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
+    removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+  };
 };
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
@@ -14,7 +55,7 @@ const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: ExpoSecureStoreAdapter,
+    storage: createStorageAdapter(),
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
