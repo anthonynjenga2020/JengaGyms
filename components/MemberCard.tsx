@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@/lib/theme';
 import type { Member, MemberStatus } from '@/context/MembersContext';
@@ -46,6 +46,58 @@ function isOverdue(nextBillingDate: string | null, status: MemberStatus): boolea
   if (!nextBillingDate || status !== 'active') return false;
   return new Date(nextBillingDate).getTime() < Date.now();
 }
+
+function daysLeft(expiryDate: string): number {
+  return Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86_400_000);
+}
+
+function openWhatsApp(phone: string, message: string) {
+  const clean = phone.replace(/\D/g, '').replace(/^0/, '254');
+  const url = `whatsapp://send?phone=${clean}&text=${encodeURIComponent(message)}`;
+  Linking.openURL(url).catch(() =>
+    Linking.openURL(`https://wa.me/${clean}?text=${encodeURIComponent(message)}`)
+  );
+}
+
+// ── WhatsApp Quick Action ─────────────────────────────────────────────────────
+
+function WhatsAppAction({ member, type }: { member: Member; type: 'expiring' | 'overdue' }) {
+  const firstName = member.name.split(' ')[0];
+  const days = daysLeft(member.expiry_date);
+
+  const message = type === 'expiring'
+    ? `Habari ${firstName}! 👋\n\nYour *${member.plan_label}* membership expires in *${days} day${days === 1 ? '' : 's'}*.\n\nRenew now to keep your access — reply here or visit the front desk.\n\n— The Gym Team`
+    : `Habari ${firstName}! 👋\n\nYour *${member.plan_label}* payment of *Ksh ${member.billing_amount.toLocaleString('en-KE')}* is overdue.\n\nPlease pay via M-Pesa or visit the gym to keep your membership active.\n\nAny issues, just reply here!\n\n— The Gym Team`;
+
+  const isExp = type === 'expiring';
+
+  return (
+    <TouchableOpacity
+      style={[waStyles.btn, { borderColor: isExp ? '#F97316' : colors.danger, backgroundColor: isExp ? '#F9731610' : colors.danger + '10' }]}
+      onPress={() => openWhatsApp(member.phone, message)}
+    >
+      <Ionicons name="logo-whatsapp" size={13} color={isExp ? '#F97316' : colors.danger} />
+      <Text style={[waStyles.label, { color: isExp ? '#F97316' : colors.danger }]}>
+        {isExp ? 'Remind' : 'Chase'}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+const waStyles = StyleSheet.create({
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 7,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  label: { fontSize: 11, fontWeight: '700' },
+});
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -129,6 +181,11 @@ export function MemberCard({ member, onPress, isCheckedInToday }: Props) {
             <Text style={styles.noVisits}>No recent visits</Text>
           )}
         </View>
+
+        {/* Row 5: WhatsApp action for at-risk members */}
+        {(expiring || overdue) && (
+          <WhatsAppAction member={member} type={overdue ? 'overdue' : 'expiring'} />
+        )}
       </View>
 
       <Ionicons name="chevron-forward" size={16} color={colors.textMuted} style={styles.chevron} />

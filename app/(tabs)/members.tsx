@@ -141,6 +141,53 @@ const statsStyles = StyleSheet.create({
   divider: { width: 1, backgroundColor: colors.border, marginVertical: 4 },
 });
 
+// ── Revenue Bar ───────────────────────────────────────────────────────────────
+
+function RevenueBar({ members }: { members: Member[] }) {
+  const monthly = members
+    .filter(m => m.status === 'active' && m.billing_cycle === 'monthly')
+    .reduce((s, m) => s + m.billing_amount, 0);
+
+  const atRisk = members
+    .filter(m => isExpiringSoon(m) || isOverdue(m))
+    .reduce((s, m) => s + m.billing_amount, 0);
+
+  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString('en-KE');
+
+  if (monthly === 0) return null;
+
+  return (
+    <View style={revenueStyles.bar}>
+      <View style={revenueStyles.item}>
+        <Text style={revenueStyles.label}>Monthly MRR</Text>
+        <Text style={[revenueStyles.value, { color: colors.primary }]}>Ksh {fmt(monthly)}</Text>
+      </View>
+      <View style={revenueStyles.divider} />
+      <View style={revenueStyles.item}>
+        <Text style={revenueStyles.label}>At Risk</Text>
+        <Text style={[revenueStyles.value, { color: atRisk > 0 ? '#F97316' : colors.textMuted }]}>
+          {atRisk > 0 ? `Ksh ${fmt(atRisk)}` : '—'}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+const revenueStyles = StyleSheet.create({
+  bar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: 12, borderWidth: 1, borderColor: colors.border,
+    marginHorizontal: spacing.md,
+    marginBottom: 12,
+    paddingVertical: 12,
+  },
+  item: { flex: 1, alignItems: 'center', gap: 3 },
+  label: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
+  value: { fontSize: 18, fontWeight: '700' },
+  divider: { width: 1, backgroundColor: colors.border, marginVertical: 4 },
+});
+
 // ── Sort Dropdown ─────────────────────────────────────────────────────────────
 
 function SortDropdown({ value, onChange }: { value: SortKey; onChange: (k: SortKey) => void }) {
@@ -284,6 +331,9 @@ export default function MembersScreen() {
 
       {/* Stats bar */}
       <StatsBar members={members} />
+
+      {/* Revenue bar */}
+      <RevenueBar members={members} />
 
       {/* Count + sort */}
       <View style={styles.metaRow}>
