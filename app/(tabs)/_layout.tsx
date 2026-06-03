@@ -11,20 +11,6 @@ function TabIcon({ name, color }: { name: IoniconName; color: string }) {
   return <Ionicons name={name} size={22} color={color} />;
 }
 
-function ReviewsTabIcon({ color }: { color: string }) {
-  const { unansweredCount } = useReviewsContext();
-  return (
-    <View>
-      <Ionicons name="star-outline" size={22} color={color} />
-      {unansweredCount > 0 && (
-        <View style={[badge.dot, { backgroundColor: '#FF8C00' }]}>
-          <Text style={badge.text}>{unansweredCount > 9 ? '9+' : unansweredCount}</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
 function MessageTabIcon({ color }: { color: string }) {
   const { unreadCount } = useMessagesContext();
   return (
@@ -33,6 +19,20 @@ function MessageTabIcon({ color }: { color: string }) {
       {unreadCount > 0 && (
         <View style={badge.dot}>
           <Text style={badge.text}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function MoreTabIcon({ color }: { color: string }) {
+  const { unansweredCount } = useReviewsContext();
+  return (
+    <View>
+      <Ionicons name="ellipsis-horizontal-circle-outline" size={22} color={color} />
+      {unansweredCount > 0 && (
+        <View style={[badge.dot, { backgroundColor: '#FF8C00' }]}>
+          <Text style={badge.text}>{unansweredCount > 9 ? '9+' : unansweredCount}</Text>
         </View>
       )}
     </View>
@@ -71,10 +71,11 @@ export default function TabLayout() {
         },
       }}
     >
+      {/* ── Visible tabs (5) ─────────────────────────────── */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: 'Home',
           tabBarIcon: ({ color }) => <TabIcon name="grid-outline" color={color} />,
         }}
       />
@@ -100,31 +101,40 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="more"
+        options={{
+          title: 'More',
+          tabBarIcon: ({ color }) => <MoreTabIcon color={color} />,
+        }}
+      />
+
+      {/* ── Hidden tabs (reachable via router.push) ──────── */}
+      <Tabs.Screen
         name="classes"
         options={{
           title: 'Classes',
-          tabBarIcon: ({ color }) => <TabIcon name="calendar-outline" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) => <TabIcon name="settings-outline" color={color} />,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="reviews"
         options={{
           title: 'Reviews',
-          tabBarIcon: ({ color }) => <ReviewsTabIcon color={color} />,
+          tabBarItemStyle: { display: 'none' },
         }}
       />
       <Tabs.Screen
         name="campaigns"
         options={{
           title: 'Marketing',
-          tabBarIcon: ({ color }) => <TabIcon name="megaphone-outline" color={color} />,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarItemStyle: { display: 'none' },
         }}
       />
     </Tabs>

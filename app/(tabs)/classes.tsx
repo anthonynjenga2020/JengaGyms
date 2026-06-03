@@ -971,7 +971,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingTop: Platform.OS === 'ios' ? 56 : 32,
+    paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 16 : 32,
     paddingBottom: 12,
     gap: 8,
     backgroundColor: colors.background,

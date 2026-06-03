@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingTop: Platform.OS === 'ios' ? 56 : 32,
+    paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 16 : 32,
     paddingBottom: 12,
   },
   title: { fontSize: 28, fontWeight: '700', color: colors.text },

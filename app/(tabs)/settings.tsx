@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useClient } from '@/hooks/useClient';
@@ -174,7 +175,7 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, paddingTop: 56, paddingBottom: 48, gap: 8 },
+  content: { padding: spacing.md, paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 16 : 32, paddingBottom: 48, gap: 8 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
   title: { fontSize: 28, fontWeight: '700', color: colors.text, marginBottom: 8 },
   profileCard: {

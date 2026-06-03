@@ -665,3 +665,32 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
+
+-- ============================================================
+-- MIGRATION 006 — WhatsApp & Review Tracking
+-- ============================================================
+
+-- Add whatsapp_message_id to track delivery statuses from Meta
+alter table messages add column if not exists whatsapp_message_id text unique;
+
+-- Enhance review_requests with delivery and channel tracking
+alter table review_requests add column if not exists channel text not null default 'sms'
+  check (channel in ('sms','whatsapp','qr_code'));
+alter table review_requests add column if not exists delivery_status text not null default 'pending'
+  check (delivery_status in ('pending','sent','delivered','failed'));
+alter table review_requests add column if not exists message_id text; -- AT or Meta ID
+alter table review_requests add column if not exists trigger_source text default 'manual'
+  check (trigger_source in ('manual','automation','post_trial','qr_scan'));
+
+-- Table for tracking QR scans at the gym
+create table if not exists qr_scans (
+  id         uuid primary key default uuid_generate_v4(),
+  client_id  uuid not null references clients(id) on delete cascade,
+  scanned_at timestamptz not null default now(),
+  user_agent text,
+  ip_hash    text
+);
+create index if not exists qr_scans_client_id_idx on qr_scans(client_id);
+alter table qr_scans enable row level security;
+create policy "qr_scans_owner_access" on qr_scans for all using (client_id in (select id from clients where owner_user_id = auth.uid()::text));
+

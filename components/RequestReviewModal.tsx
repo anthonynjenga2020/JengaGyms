@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius } from '@/lib/theme';
 import { useMembersContext } from '@/context/MembersContext';
+import { useClientContext } from '@/context/ClientContext';
+import { supabase } from '@/lib/supabase';
 import type { Member } from '@/context/MembersContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -370,6 +372,7 @@ export function RequestReviewModal({
 }) {
   const insets = useSafeAreaInsets();
   const { members } = useMembersContext();
+  const { clientId } = useClientContext();
 
   const slideAnim = useRef(new Animated.Value(800)).current;
   const backdropAnim = useRef(new Animated.Value(0)).current;
@@ -442,9 +445,45 @@ export function RequestReviewModal({
     setCustomContacts(prev => [...prev, cc]);
   }
 
-  function handleSend() {
-    onSent(totalSelected);
-    onClose();
+  async function handleSend() {
+    try {
+      if (!clientId) throw new Error('No client ID found');
+
+      const selectedMembers = members.filter(m => selectedIds.has(m.id));
+      const allContacts = [
+        ...selectedMembers.map(m => ({ phone: m.phone, name: m.name })),
+        ...customContacts.map(c => ({ phone: c.phone, name: c.name }))
+      ];
+
+      // Call the edge function for each selected contact
+      for (const contact of allContacts) {
+        const { error } = await supabase.functions.invoke('send-whatsapp', {
+          body: {
+            client_id: clientId,
+            to_phone: contact.phone,
+            template_name: 'review_request', // Ensure this matches your Meta template name
+            components: [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: contact.name }
+                ]
+              }
+            ]
+          }
+        });
+
+        if (error) {
+          console.error(`Failed to send to ${contact.phone}:`, error);
+        }
+      }
+
+      onSent(totalSelected);
+      onClose();
+    } catch (e) {
+      console.error('Error in handleSend:', e);
+      onClose();
+    }
   }
 
   const slideTranslate = slideOffset.interpolate({

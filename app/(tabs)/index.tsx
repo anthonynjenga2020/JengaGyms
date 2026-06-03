@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Linking,
+  Platform,
 } from 'react-native';
 import { useState } from 'react';
 import { router } from 'expo-router';
@@ -428,7 +429,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.md,
-    paddingTop: 56,
+    paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 16 : 32,
     paddingBottom: 32,
     gap: 16,
   },

@@ -1,7 +1,22 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, getStageConfig, LEAD_SOURCES } from '@/lib/theme';
 import type { AppLead } from '@/context/LeadsContext';
+
+function openWhatsApp(phone: string, name: string) {
+  const clean = phone.replace(/\D/g, '').replace(/^0/, '254');
+  const firstName = name.split(' ')[0];
+  const msg = `Habari ${firstName}! 👋\n\nWe saw your interest in joining us. We'd love to have you in — can we book a free trial session for you?\n\nReply here or call us anytime!\n\n— The Gym Team`;
+  const url = `whatsapp://send?phone=${clean}&text=${encodeURIComponent(msg)}`;
+  Linking.openURL(url).catch(() =>
+    Linking.openURL(`https://wa.me/${clean}?text=${encodeURIComponent(msg)}`)
+  );
+}
+
+function callLead(phone: string) {
+  const clean = phone.replace(/\D/g, '').replace(/^0/, '+254');
+  Linking.openURL(`tel:${clean}`);
+}
 
 type Props = {
   lead: AppLead;
@@ -101,6 +116,26 @@ export function LeadCard({ lead, onPress, compact = false }: Props) {
 
         {/* Row 4: last contacted */}
         <Text style={styles.lastContacted}>{lastContactedLabel(lead.last_contacted_at)}</Text>
+
+        {/* Row 5: quick actions */}
+        {lead.phone && (
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.waBtn]}
+              onPress={e => { e.stopPropagation(); openWhatsApp(lead.phone!, lead.name); }}
+            >
+              <Ionicons name="logo-whatsapp" size={13} color={colors.primary} />
+              <Text style={[styles.actionBtnText, { color: colors.primary }]}>WhatsApp</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.callBtn]}
+              onPress={e => { e.stopPropagation(); callLead(lead.phone!); }}
+            >
+              <Ionicons name="call-outline" size={13} color={colors.info} />
+              <Text style={[styles.actionBtnText, { color: colors.info }]}>Call</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
       {/* Chevron */}
@@ -151,6 +186,21 @@ const styles = StyleSheet.create({
   interestTag: { backgroundColor: colors.primary + '15' },
   interestTagText: { color: colors.primary },
   lastContacted: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
+  actionsRow: { flexDirection: 'row', gap: 8, marginTop: 6 },
+  actionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 7, borderWidth: 1,
+  },
+  waBtn: {
+    borderColor: colors.primary + '55',
+    backgroundColor: colors.primary + '12',
+  },
+  callBtn: {
+    borderColor: colors.info + '55',
+    backgroundColor: colors.info + '12',
+  },
+  actionBtnText: { fontSize: 11, fontWeight: '700' },
   chevron: { marginTop: 4 },
 
   // Compact (kanban)

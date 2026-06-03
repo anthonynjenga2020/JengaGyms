@@ -1,8 +1,8 @@
 import {
   View, Text, FlatList, StyleSheet, TouchableOpacity,
-  TextInput, Platform, Animated,
+  TextInput, Platform,
 } from 'react-native';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import RNAnimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
@@ -77,54 +77,44 @@ function sortMembers(members: Member[], sort: SortKey): Member[] {
   });
 }
 
-// ── Count-up hook ─────────────────────────────────────────────────────────────
+// ── Combined Stats Bar (compact) ──────────────────────────────────────────────
 
-function useCountUp(target: number) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (target === 0) return;
-    let current = 0;
-    const step = Math.max(1, Math.ceil(target / 40));
-    const timer = setInterval(() => {
-      current = Math.min(current + step, target);
-      setCount(current);
-      if (current >= target) clearInterval(timer);
-    }, 20);
-    return () => clearInterval(timer);
-  }, [target]);
-  return count;
-}
+function MemberStatsBar({ members }: { members: Member[] }) {
+  const activeCount   = members.filter(m => m.status === 'active').length;
+  const expiringCount = members.filter(isExpiringSoon).length;
+  const monthly       = members
+    .filter(m => m.status === 'active' && m.billing_cycle === 'monthly')
+    .reduce((s, m) => s + m.billing_amount, 0);
+  const atRisk        = members
+    .filter(m => isExpiringSoon(m) || isOverdue(m))
+    .reduce((s, m) => s + m.billing_amount, 0);
 
-// ── Stats Bar ─────────────────────────────────────────────────────────────────
+  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString('en-KE');
 
-function StatsBar({ members }: { members: Member[] }) {
-  const activeCount    = members.filter(m => m.status === 'active').length;
-  const expiringCount  = members.filter(isExpiringSoon).length;
-  const inactiveCount  = members.filter(m => m.status === 'inactive').length;
-
-  const active   = useCountUp(activeCount);
-  const expiring = useCountUp(expiringCount);
-  const inactive = useCountUp(inactiveCount);
+  const stats = [
+    { label: 'Active',    value: String(activeCount),   color: colors.primary },
+    { label: 'Expiring',  value: String(expiringCount), color: expiringCount > 0 ? '#F97316' : colors.textMuted },
+    { label: 'MRR',       value: monthly > 0 ? `${fmt(monthly)}` : '—', color: colors.accent },
+    { label: 'At Risk',   value: atRisk > 0 ? `${fmt(atRisk)}` : '—',   color: atRisk > 0 ? colors.danger : colors.textMuted },
+  ];
 
   return (
     <View style={statsStyles.bar}>
-      <View style={statsStyles.item}>
-        <Text style={[statsStyles.value, { color: colors.primary }]}>{active}</Text>
-        <Text style={statsStyles.label}>Active</Text>
-      </View>
-      <View style={statsStyles.divider} />
-      <View style={statsStyles.item}>
-        <Text style={[statsStyles.value, { color: '#F97316' }]}>{expiring}</Text>
-        <Text style={statsStyles.label}>Expiring Soon</Text>
-      </View>
-      <View style={statsStyles.divider} />
-      <View style={statsStyles.item}>
-        <Text style={[statsStyles.value, { color: colors.textMuted }]}>{inactive}</Text>
-        <Text style={statsStyles.label}>Inactive</Text>
-      </View>
+      {stats.map((s, i) => (
+        <View key={s.label} style={styles_inline.statCell}>
+          <Text style={[statsStyles.value, { color: s.color }]}>{s.value}</Text>
+          <Text style={statsStyles.label}>{s.label}</Text>
+          {i < stats.length - 1 && <View style={statsStyles.divider} />}
+        </View>
+      ))}
     </View>
   );
 }
+
+// tiny helper to avoid outer StyleSheet collision
+const styles_inline = StyleSheet.create({
+  statCell: { flex: 1, alignItems: 'center', gap: 2, position: 'relative' },
+});
 
 const statsStyles = StyleSheet.create({
   bar: {
@@ -132,60 +122,12 @@ const statsStyles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 12, borderWidth: 1, borderColor: colors.border,
     marginHorizontal: spacing.md,
-    marginBottom: 12,
-    paddingVertical: 14,
+    marginBottom: 10,
+    paddingVertical: 10,
   },
-  item: { flex: 1, alignItems: 'center', gap: 3 },
-  value: { fontSize: 26, fontWeight: '700', lineHeight: 30 },
-  label: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
-  divider: { width: 1, backgroundColor: colors.border, marginVertical: 4 },
-});
-
-// ── Revenue Bar ───────────────────────────────────────────────────────────────
-
-function RevenueBar({ members }: { members: Member[] }) {
-  const monthly = members
-    .filter(m => m.status === 'active' && m.billing_cycle === 'monthly')
-    .reduce((s, m) => s + m.billing_amount, 0);
-
-  const atRisk = members
-    .filter(m => isExpiringSoon(m) || isOverdue(m))
-    .reduce((s, m) => s + m.billing_amount, 0);
-
-  const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toLocaleString('en-KE');
-
-  if (monthly === 0) return null;
-
-  return (
-    <View style={revenueStyles.bar}>
-      <View style={revenueStyles.item}>
-        <Text style={revenueStyles.label}>Monthly MRR</Text>
-        <Text style={[revenueStyles.value, { color: colors.primary }]}>Ksh {fmt(monthly)}</Text>
-      </View>
-      <View style={revenueStyles.divider} />
-      <View style={revenueStyles.item}>
-        <Text style={revenueStyles.label}>At Risk</Text>
-        <Text style={[revenueStyles.value, { color: atRisk > 0 ? '#F97316' : colors.textMuted }]}>
-          {atRisk > 0 ? `Ksh ${fmt(atRisk)}` : '—'}
-        </Text>
-      </View>
-    </View>
-  );
-}
-
-const revenueStyles = StyleSheet.create({
-  bar: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 12, borderWidth: 1, borderColor: colors.border,
-    marginHorizontal: spacing.md,
-    marginBottom: 12,
-    paddingVertical: 12,
-  },
-  item: { flex: 1, alignItems: 'center', gap: 3 },
-  label: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
-  value: { fontSize: 18, fontWeight: '700' },
-  divider: { width: 1, backgroundColor: colors.border, marginVertical: 4 },
+  value: { fontSize: 18, fontWeight: '700', lineHeight: 22 },
+  label: { fontSize: 10, color: colors.textMuted, fontWeight: '500' },
+  divider: { position: 'absolute', right: 0, top: 4, bottom: 4, width: 1, backgroundColor: colors.border },
 });
 
 // ── Sort Dropdown ─────────────────────────────────────────────────────────────
@@ -329,11 +271,8 @@ export default function MembersScreen() {
         }}
       />
 
-      {/* Stats bar */}
-      <StatsBar members={members} />
-
-      {/* Revenue bar */}
-      <RevenueBar members={members} />
+      {/* Compact stats + revenue row */}
+      <MemberStatsBar members={members} />
 
       {/* Count + sort */}
       <View style={styles.metaRow}>
@@ -378,7 +317,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingTop: Platform.OS === 'ios' ? 56 : 32,
+    paddingTop: Platform.OS === 'ios' ? 56 : Platform.OS === 'web' ? 16 : 32,
     paddingBottom: 12,
     backgroundColor: colors.background,
   },

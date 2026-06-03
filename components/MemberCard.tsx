@@ -182,9 +182,34 @@ export function MemberCard({ member, onPress, isCheckedInToday }: Props) {
           )}
         </View>
 
-        {/* Row 5: WhatsApp action for at-risk members */}
-        {(expiring || overdue) && (
+        {/* Row 5: Quick actions — WhatsApp reminder for at-risk, or generic call/WA */}
+        {(expiring || overdue) ? (
           <WhatsAppAction member={member} type={overdue ? 'overdue' : 'expiring'} />
+        ) : (
+          <View style={styles.contactRow}>
+            <TouchableOpacity
+              style={styles.contactBtn}
+              onPress={e => {
+                e.stopPropagation();
+                const clean = member.phone.replace(/\D/g, '').replace(/^0/, '254');
+                Linking.openURL(`whatsapp://send?phone=${clean}`).catch(() =>
+                  Linking.openURL(`https://wa.me/${clean}`)
+                );
+              }}
+            >
+              <Ionicons name="logo-whatsapp" size={12} color={colors.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.contactBtn}
+              onPress={e => {
+                e.stopPropagation();
+                const clean = member.phone.replace(/\D/g, '').replace(/^0/, '+254');
+                Linking.openURL(`tel:${clean}`);
+              }}
+            >
+              <Ionicons name="call-outline" size={12} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
@@ -234,5 +259,12 @@ const styles = StyleSheet.create({
   fireEmoji: { fontSize: 13 },
   streakText: { fontSize: 12, fontWeight: '600', color: '#F97316' },
   noVisits: { fontSize: 12, color: colors.textMuted },
+  contactRow: { flexDirection: 'row', gap: 6, marginTop: 2 },
+  contactBtn: {
+    width: 26, height: 26, borderRadius: 7,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1, borderColor: colors.border,
+    justifyContent: 'center', alignItems: 'center',
+  },
   chevron: { marginTop: 4 },
 });
