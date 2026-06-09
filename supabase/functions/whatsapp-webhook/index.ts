@@ -104,7 +104,7 @@ serve(async (req) => {
               let conversationId = null;
               const { data: existingConv } = await supabase
                 .from('conversations')
-                .select('id')
+                .select('id, ai_enabled')
                 .eq('client_id', clientId)
                 .eq('contact_phone', cleanPhone)
                 .eq('channel', 'whatsapp')
@@ -149,6 +149,19 @@ serve(async (req) => {
                     whatsapp_message_id: messageId,
                     read: false
                   });
+
+                // 3. Trigger AI Chatbot
+                const aiEnabled = existingConv ? existingConv.ai_enabled : true;
+                if (aiEnabled) {
+                  // Fire and forget: do not await this so Meta gets the 200 OK fast
+                  supabase.functions.invoke('ai-chatbot', {
+                    body: {
+                      client_id: clientId,
+                      conversation_id: conversationId,
+                      contact_phone: cleanPhone
+                    }
+                  }).catch(err => console.error('Error invoking AI Chatbot:', err));
+                }
               }
 
             } else if (change.value && change.value.statuses) {

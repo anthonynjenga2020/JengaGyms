@@ -694,3 +694,52 @@ create index if not exists qr_scans_client_id_idx on qr_scans(client_id);
 alter table qr_scans enable row level security;
 create policy "qr_scans_owner_access" on qr_scans for all using (client_id in (select id from clients where owner_user_id = auth.uid()::text));
 
+-- ============================================================
+-- MIGRATION 007 — AI Chatbot Support
+-- ============================================================
+
+-- Add gym_knowledge_base to clients for custom AI context
+alter table clients add column if not exists gym_knowledge_base text;
+
+-- Add ai_enabled flag to conversations to allow human handoff
+alter table conversations add column if not exists ai_enabled boolean not null default true;
+
+-- ============================================================
+-- MIGRATION 008 — Lead Follow-up & Review Automations
+-- ============================================================
+
+-- Add tracking fields to leads table
+alter table leads add column if not exists trial_completed_at timestamptz;
+alter table leads add column if not exists followup_day_sent integer default -1;
+alter table leads add column if not exists post_trial_review_sent boolean default false;
+
+-- Extensions for scheduled tasks (Run these in Supabase Dashboard SQL Editor)
+-- create extension if not exists pg_cron;
+-- create extension if not exists pg_net;
+
+-- NOTE: To enable scheduling, you will need to replace YOUR_PROJECT_REF and YOUR_ANON_KEY 
+-- and run this in your Supabase SQL Editor:
+/*
+select cron.schedule(
+  'hourly-lead-followup',
+  '0 * * * *', -- Run every hour
+  $$
+  select net.http_post(
+      url:='https://YOUR_PROJECT_REF.supabase.co/functions/v1/lead-followup',
+      headers:='{"Authorization": "Bearer YOUR_ANON_KEY"}'::jsonb
+  );
+  $$
+);
+
+select cron.schedule(
+  'hourly-review-automation',
+  '0 * * * *', -- Run every hour
+  $$
+  select net.http_post(
+      url:='https://YOUR_PROJECT_REF.supabase.co/functions/v1/review-automation',
+      headers:='{"Authorization": "Bearer YOUR_ANON_KEY"}'::jsonb
+  );
+  $$
+);
+*/
+
