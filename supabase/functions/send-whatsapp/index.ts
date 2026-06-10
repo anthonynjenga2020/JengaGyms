@@ -12,6 +12,7 @@ interface SendWhatsAppRequest {
   template_name: string;
   language_code?: string;
   components?: any[]; // For dynamic variables in the template
+  image_url?: string; // Optional public URL for media templates
   sender_name?: string; // Optional context for the UI
 }
 
@@ -28,7 +29,7 @@ serve(async (req) => {
     );
 
     // Parse the request
-    const { client_id, to_phone, template_name, language_code = 'en_US', components = [], sender_name = 'Jenga System' } = await req.json() as SendWhatsAppRequest;
+    const { client_id, to_phone, template_name, language_code = 'en_US', components = [], image_url, sender_name = 'Jenga System' } = await req.json() as SendWhatsAppRequest;
 
     if (!client_id || !to_phone || !template_name) {
       throw new Error('Missing required fields: client_id, to_phone, template_name');
@@ -49,6 +50,20 @@ serve(async (req) => {
     // 1. Send the message via Meta Graph API
     const metaApiUrl = `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`;
     
+    // If an image_url is provided, prepend the header component
+    const finalComponents = [...components];
+    if (image_url) {
+      finalComponents.unshift({
+        type: 'header',
+        parameters: [
+          {
+            type: 'image',
+            image: { link: image_url }
+          }
+        ]
+      });
+    }
+
     const payload = {
       messaging_product: 'whatsapp',
       to: formattedPhone,
@@ -58,7 +73,7 @@ serve(async (req) => {
         language: {
           code: language_code
         },
-        components: components
+        components: finalComponents
       }
     };
 

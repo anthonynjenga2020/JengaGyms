@@ -10,7 +10,9 @@ import {
   Animated,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import RNAnimated, { FadeInRight, FadeIn } from 'react-native-reanimated';
@@ -24,10 +26,12 @@ import {
   SCHEDULE_TIMES,
   buildScheduledAt,
   formatScheduledAt,
+  WHATSAPP_TEMPLATES,
   type ContactItem,
   type MockBroadcast,
 } from '@/lib/mockBroadcasts';
 import { PERSONALIZATION_TOKENS } from '@/lib/mockAutomations';
+import { supabase } from '@/lib/supabase';
 
 const MAX_CHARS = 160;
 
@@ -99,6 +103,9 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [message, setMessage] = useState('');
+  const [channel, setChannel] = useState<'sms' | 'whatsapp'>('whatsapp');
+  const [templateName, setTemplateName] = useState<string | undefined>(undefined);
+  const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [sendMode, setSendMode] = useState<'now' | 'schedule'>('now');
   const [scheduleDay, setScheduleDay] = useState('tomorrow');
   const [scheduleTime, setScheduleTime] = useState('8am');
@@ -123,6 +130,9 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
     setSelectedIds(new Set());
     setSearchQuery('');
     setMessage('');
+    setChannel('whatsapp');
+    setTemplateName(undefined);
+    setMediaUri(null);
     setSendMode('now');
     setScheduleDay('tomorrow');
     setScheduleTime('8am');
@@ -131,6 +141,8 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
 
   function prefill(b: MockBroadcast) {
     setMessage(b.message);
+    setChannel(b.channel || 'whatsapp');
+    setTemplateName(b.templateName);
     const ids = new Set(b.recipients.map(r => `${r.type === 'member' ? 'm' : 'l'}_${r.id}`));
     setSelectedIds(ids);
     if (b.scheduledAt) {
@@ -190,10 +202,76 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
       .replace(/{date}/g, 'Mon 21 Apr');
   }
 
-  function handleSend() {
+  async function pickImage() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setMediaUri(result.assets[0].uri);
+    }
+  }
+
+  async function handleSend() {
     if (!message.trim() || selectedIds.size === 0) return;
+    if (channel === 'whatsapp' && !templateName) return;
+    if (channel === 'whatsapp' && templateName === 'event_invite' && !mediaUri) {
+      alert("Please attach a poster image for the Event Invite template.");
+      return;
+    }
+
     setSending(true);
     const scheduledAt = sendMode === 'schedule' ? buildScheduledAt(scheduleDay, scheduleTime) : undefined;
+
+    let imageUrl: string | undefined = undefined;
+
+    if (sendMode === 'now') {
+      // If we have an image, upload to Supabase Storage first
+      if (channel === 'whatsapp' && templateName === 'event_invite' && mediaUri) {
+        const ext = mediaUri.split('.').pop() || 'jpg';
+        const fileName = `poster_${Date.now()}.${ext}`;
+        const formData = new FormData();
+        formData.append('file', {
+          uri: mediaUri,
+          name: fileName,
+          type: `image/${ext}`
+        } as any);
+
+        const { data, error } = await supabase.storage
+          .from('broadcast_media')
+          .upload(fileName, formData);
+          
+        if (data) {
+          const { data: publicUrlData } = supabase.storage
+            .from('broadcast_media')
+            .getPublicUrl(fileName);
+          imageUrl = publicUrlData.publicUrl;
+        } else {
+          console.error('Image upload failed', error);
+        }
+      }
+
+      // Loop and invoke real edge function
+      for (const contact of selectedContacts) {
+        if (channel === 'whatsapp') {
+          await supabase.functions.invoke('send-whatsapp', {
+            body: {
+              client_id: 'default_client', // In a real app we pass the current client ID
+              to_phone: contact.phone,
+              template_name: templateName,
+              image_url: imageUrl,
+              components: [
+                {
+                  type: 'body',
+                  parameters: [{ type: 'text', text: contact.name.split(' ')[0] }]
+                }
+              ]
+            }
+          });
+        }
+      }
+    }
 
     setTimeout(() => {
       setSending(false);
@@ -201,6 +279,8 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
         id: `b${Date.now()}`,
         recipientLabel: buildRecipientLabel(),
         message: message.trim(),
+        channel,
+        templateName,
         status: sendMode === 'now' ? 'sent' : 'scheduled',
         sentAt: sendMode === 'now' ? new Date().toISOString() : undefined,
         scheduledAt,
@@ -214,10 +294,10 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
       };
       onSend(broadcast);
       onClose();
-    }, 900);
+    }, 400);
   }
 
-  const canSend = selectedIds.size > 0 && message.trim().length > 0 && !sending;
+  const canSend = selectedIds.size > 0 && message.trim().length > 0 && !sending && (channel === 'sms' || !!templateName);
   const charCount = message.length;
   const charOver = charCount > MAX_CHARS;
   const scheduledLabel = sendMode === 'schedule'
@@ -364,47 +444,109 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
                 )}
               </View>
 
+              {/* ── CHANNEL SELECTION ── */}
+              <View style={{ gap: 10 }}>
+                <Text style={styles.fieldLabel}>Channel</Text>
+                <View style={styles.sendOptionRow}>
+                  <TouchableOpacity
+                    style={[styles.sendOptionCard, channel === 'whatsapp' && styles.sendOptionCardActive]}
+                    onPress={() => setChannel('whatsapp')}
+                  >
+                    <Text style={styles.sendOptionEmoji}>💬</Text>
+                    <Text style={[styles.sendOptionLabel, channel === 'whatsapp' && { color: colors.primary }]}>WhatsApp</Text>
+                    {channel === 'whatsapp' && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.sendOptionCard, channel === 'sms' && styles.sendOptionCardActive]}
+                    onPress={() => setChannel('sms')}
+                  >
+                    <Text style={styles.sendOptionEmoji}>📱</Text>
+                    <Text style={[styles.sendOptionLabel, channel === 'sms' && { color: colors.primary }]}>SMS</Text>
+                    {channel === 'sms' && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               {/* ── MESSAGE ── */}
               <View style={{ gap: 10 }}>
                 <View style={styles.sectionHeader}>
                   <Text style={styles.fieldLabel}>Message</Text>
-                  <TouchableOpacity
-                    style={styles.templateBtn}
-                    onPress={() => setShowTemplates(true)}
-                  >
-                    <Ionicons name="flash-outline" size={13} color={colors.primary} />
-                    <Text style={styles.templateBtnText}>Use Template</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.textareaWrap}>
-                  <TextInput
-                    style={styles.textarea}
-                    multiline
-                    numberOfLines={5}
-                    placeholder="Write your message..."
-                    placeholderTextColor={colors.textMuted}
-                    value={message}
-                    onChangeText={setMessage}
-                    textAlignVertical="top"
-                  />
-                  <Text style={[styles.charCount, charOver && styles.charCountOver]}>
-                    {charCount}/{MAX_CHARS}
-                  </Text>
-                </View>
-
-                {/* Personalization tokens */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                  {PERSONALIZATION_TOKENS.map(tok => (
+                  {channel === 'sms' && (
                     <TouchableOpacity
-                      key={tok}
-                      style={styles.tokenChip}
-                      onPress={() => setMessage(prev => prev + tok)}
+                      style={styles.templateBtn}
+                      onPress={() => setShowTemplates(true)}
                     >
-                      <Text style={styles.tokenText}>{tok}</Text>
+                      <Ionicons name="flash-outline" size={13} color={colors.primary} />
+                      <Text style={styles.templateBtnText}>Use Template</Text>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                  )}
+                </View>
+
+                {channel === 'whatsapp' ? (
+                  <View style={styles.waTemplatesList}>
+                    {WHATSAPP_TEMPLATES.map(t => (
+                      <TouchableOpacity
+                        key={t.id}
+                        style={[styles.waTemplateCard, templateName === t.name && styles.waTemplateCardActive]}
+                        onPress={() => {
+                          setTemplateName(t.name);
+                          setMessage(t.body);
+                          if (t.name !== 'event_invite') setMediaUri(null);
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <Text style={[styles.waTemplateTitle, templateName === t.name && { color: colors.primary }]}>{t.title}</Text>
+                          {templateName === t.name && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
+                        </View>
+                        <Text style={styles.waTemplateBody}>{t.body}</Text>
+                      </TouchableOpacity>
+                    ))}
+                    
+                    {/* Media Upload for Event Invite */}
+                    {templateName === 'event_invite' && (
+                      <RNAnimated.View entering={FadeIn.duration(200)} style={styles.mediaUploadWrap}>
+                        <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
+                          <Ionicons name="image-outline" size={20} color={colors.primary} />
+                          <Text style={styles.uploadBtnText}>{mediaUri ? 'Change Poster' : 'Attach Poster Image (Required)'}</Text>
+                        </TouchableOpacity>
+                        {mediaUri && (
+                          <Image source={{ uri: mediaUri }} style={styles.mediaPreview} />
+                        )}
+                      </RNAnimated.View>
+                    )}
+                  </View>
+                ) : (
+                  <View style={styles.textareaWrap}>
+                    <TextInput
+                      style={styles.textarea}
+                      multiline
+                      numberOfLines={5}
+                      placeholder="Write your message..."
+                      placeholderTextColor={colors.textMuted}
+                      value={message}
+                      onChangeText={setMessage}
+                      textAlignVertical="top"
+                    />
+                    <Text style={[styles.charCount, charOver && styles.charCountOver]}>
+                      {charCount}/{MAX_CHARS}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Personalization tokens (SMS only) */}
+                {channel === 'sms' && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                    {PERSONALIZATION_TOKENS.map(tok => (
+                      <TouchableOpacity
+                        key={tok}
+                        style={styles.tokenChip}
+                        onPress={() => setMessage(prev => prev + tok)}
+                      >
+                        <Text style={styles.tokenText}>{tok}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                )}
 
                 {/* Live preview */}
                 {message.trim().length > 0 && (
@@ -640,6 +782,35 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '12',
   },
   templateBtnText: { fontSize: 11, fontWeight: '700', color: colors.primary },
+  
+  waTemplatesList: { gap: 8 },
+  waTemplateCard: {
+    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  waTemplateCardActive: { borderColor: colors.primary, backgroundColor: colors.primary + '08' },
+  waTemplateTitle: { fontSize: 13, fontWeight: '700', color: colors.text },
+  waTemplateBody: { fontSize: 12, color: colors.textMuted, lineHeight: 18 },
+
+  mediaUploadWrap: { marginTop: 8, gap: 10 },
+  uploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.primary,
+    backgroundColor: colors.primary + '08',
+  },
+  uploadBtnText: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  mediaPreview: { width: '100%', height: 180, borderRadius: radius.md, resizeMode: 'cover' },
+
   textareaWrap: { position: 'relative' },
   textarea: {
     backgroundColor: colors.surface,

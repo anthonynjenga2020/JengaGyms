@@ -14,6 +14,8 @@ export interface MockBroadcast {
   id: string;
   recipientLabel: string;
   message: string;
+  channel: 'sms' | 'whatsapp';
+  templateName?: string;
   status: BroadcastStatus;
   sentAt?: string;
   scheduledAt?: string;
@@ -222,6 +224,21 @@ export const SMS_TEMPLATES: SmsTemplate[] = [
   { id: 't6', title: 'Class reminder',        body: 'Reminder: your {class_name} class is tomorrow at {time}. See you there! 🏋️ Reply CANCEL if you can\'t make it.' },
   { id: 't7', title: 'Birthday message',      body: 'Happy Birthday {name}! 🎂🎉 Wishing you a wonderful day. As a special gift, enjoy a free month upgrade on us. Reply GIFT to claim.' },
   { id: 't8', title: 'General check-in',      body: 'Hey {name}! Just checking in — how are you getting on with your fitness goals? Let us know if you need any support from the JengaGym team. 💪' },
+];
+
+// ── WhatsApp templates (Pre-approved Meta templates) ─────────────────────────
+
+export interface WhatsAppTemplate {
+  id: string;
+  name: string;
+  title: string;
+  body: string;
+}
+
+export const WHATSAPP_TEMPLATES: WhatsAppTemplate[] = [
+  { id: 'wa1', name: 'promo_offer', title: 'Promo Offer', body: 'Hi {name}! 🎉 Special offer this month — get 20% off any membership plan. Offer valid until end of month. Reply PROMO to claim.' },
+  { id: 'wa2', name: 'general_update', title: 'General Update', body: 'Hey {name}! Just letting you know about an important update regarding our gym schedule. Please check the app for details.' },
+  { id: 'wa3', name: 'event_invite', title: 'Event Invite', body: 'Hi {name}! Join us for our special fitness boot camp this Saturday at 8 AM. Don\'t miss out!' },
 ];
 
 // ── Schedule options ───────────────────────────────────────────────────────────

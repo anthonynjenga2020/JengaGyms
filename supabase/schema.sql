@@ -713,6 +713,10 @@ alter table leads add column if not exists trial_completed_at timestamptz;
 alter table leads add column if not exists followup_day_sent integer default -1;
 alter table leads add column if not exists post_trial_review_sent boolean default false;
 
+-- Add broadcast columns for WhatsApp
+alter table broadcasts add column if not exists channel text default 'sms' check (channel in ('sms','whatsapp'));
+alter table broadcasts add column if not exists template_name text;
+
 -- Extensions for scheduled tasks (Run these in Supabase Dashboard SQL Editor)
 -- create extension if not exists pg_cron;
 -- create extension if not exists pg_net;
@@ -742,4 +746,32 @@ select cron.schedule(
   $$
 );
 */
+
+-- ============================================================
+-- MIGRATION 009 — Storage Buckets
+-- ============================================================
+
+-- Create broadcast_media bucket
+insert into storage.buckets (id, name, public)
+values ('broadcast_media', 'broadcast_media', true)
+on conflict (id) do nothing;
+
+-- Set up storage policies for broadcast_media
+-- Note: Replace these with proper RLS in production, but for now we allow authenticated inserts and public reads
+
+create policy "Broadcast media is publicly accessible"
+  on storage.objects for select
+  using ( bucket_id = 'broadcast_media' );
+
+create policy "Authenticated users can upload broadcast media"
+  on storage.objects for insert
+  with check ( bucket_id = 'broadcast_media' and auth.role() = 'authenticated' );
+
+create policy "Authenticated users can update their own broadcast media"
+  on storage.objects for update
+  using ( bucket_id = 'broadcast_media' and auth.role() = 'authenticated' );
+
+create policy "Authenticated users can delete their own broadcast media"
+  on storage.objects for delete
+  using ( bucket_id = 'broadcast_media' and auth.role() = 'authenticated' );
 
