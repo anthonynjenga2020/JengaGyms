@@ -10,6 +10,7 @@ import { useMembersContext } from '@/context/MembersContext';
 import { MemberCard } from '@/components/MemberCard';
 import { AddMemberModal } from '@/components/AddMemberModal';
 import { CheckInModal } from '@/components/CheckInModal';
+import { ImportCSVModal } from '@/components/ImportCSVModal';
 import { colors, spacing } from '@/lib/theme';
 import type { Member, MemberStatus } from '@/context/MembersContext';
 
@@ -188,12 +189,13 @@ const sortStyles = StyleSheet.create({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function MembersScreen() {
-  const { members, isCheckedInToday } = useMembersContext();
+  const { members, isCheckedInToday, refreshMembers } = useMembersContext();
   const [filter, setFilter]     = useState<FilterKey>('all');
   const [sort, setSort]         = useState<SortKey>('name_az');
   const [search, setSearch]     = useState('');
   const [addVisible, setAddVisible]       = useState(false);
   const [checkInVisible, setCheckInVisible] = useState(false);
+  const [importVisible, setImportVisible]   = useState(false);
 
   const filtered = useMemo(() => {
     let result = members;
@@ -219,6 +221,11 @@ export default function MembersScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Members</Text>
         <View style={styles.headerRight}>
+          {/* Import CSV button */}
+          <TouchableOpacity style={styles.importBtn} onPress={() => setImportVisible(true)}>
+            <Ionicons name="document-text-outline" size={18} color={colors.text} />
+            <Text style={styles.importLabel}>Import</Text>
+          </TouchableOpacity>
           {/* Check-in button */}
           <TouchableOpacity style={styles.checkInBtn} onPress={() => setCheckInVisible(true)}>
             <Ionicons name="qr-code-outline" size={18} color={colors.text} />
@@ -308,6 +315,7 @@ export default function MembersScreen() {
 
       <AddMemberModal visible={addVisible} onClose={() => setAddVisible(false)} />
       <CheckInModal visible={checkInVisible} onClose={() => setCheckInVisible(false)} />
+      <ImportCSVModal visible={importVisible} onClose={() => setImportVisible(false)} onSuccess={refreshMembers} />
     </View>
   );
 }
@@ -323,6 +331,13 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 28, fontWeight: '700', color: colors.text },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  importBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  importLabel: { fontSize: 13, fontWeight: '600', color: colors.text },
   checkInBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: colors.surface,

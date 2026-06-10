@@ -141,6 +141,7 @@ type MembersContextType = {
   recordPayment: (p: Omit<Payment, 'id' | 'client_id' | 'created_at'>) => Promise<void>;
   getMemberPayments: (memberId: string) => Promise<Payment[]>;
   getMemberAttendance: (memberId: string) => Promise<AttendanceRecord[]>;
+  refreshMembers: () => Promise<void>;
 };
 
 const MembersContext = createContext<MembersContextType | null>(null);
@@ -257,6 +258,7 @@ export function MembersProvider({ children }: { children: React.ReactNode }) {
       addMember, updateMember, deleteMember, getMember,
       checkInMember, isCheckedInToday,
       recordPayment, getMemberPayments, getMemberAttendance,
+      refreshMembers: fetchMembers,
     }}>
       {children}
     </MembersContext.Provider>
