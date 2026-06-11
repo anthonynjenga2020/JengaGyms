@@ -93,9 +93,11 @@ interface Props {
   onClose: () => void;
   onSend: (broadcast: MockBroadcast) => void;
   initialBroadcast?: MockBroadcast | null;
+  dailyRemaining?: number;
+  isAtCap?: boolean;
 }
 
-export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast }: Props) {
+export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast, dailyRemaining = 10000, isAtCap = false }: Props) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(700)).current;
   const allContacts = useMemo(() => getAllContacts(), []);
@@ -297,7 +299,8 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
     }, 400);
   }
 
-  const canSend = selectedIds.size > 0 && message.trim().length > 0 && !sending && (channel === 'sms' || !!templateName);
+  const exceedsCap = selectedIds.size > dailyRemaining;
+  const canSend = selectedIds.size > 0 && message.trim().length > 0 && !sending && (channel === 'sms' || !!templateName) && !exceedsCap && !isAtCap;
   const charCount = message.length;
   const charOver = charCount > MAX_CHARS;
   const scheduledLabel = sendMode === 'schedule'
@@ -624,6 +627,20 @@ export function QuickBroadcastSheet({ visible, onClose, onSend, initialBroadcast
                     )}
                   </RNAnimated.View>
                 )}
+                
+                {/* Cap warnings */}
+                {isAtCap && (
+                  <RNAnimated.View entering={FadeIn} style={styles.capWarning}>
+                    <Ionicons name="warning" size={16} color={colors.danger} />
+                    <Text style={styles.capWarningText}>Daily broadcast limit reached. You can schedule for tomorrow.</Text>
+                  </RNAnimated.View>
+                )}
+                {!isAtCap && exceedsCap && (
+                  <RNAnimated.View entering={FadeIn} style={styles.capWarning}>
+                    <Ionicons name="warning" size={16} color={colors.danger} />
+                    <Text style={styles.capWarningText}>You have {dailyRemaining} messages remaining today, but selected {selectedIds.size}.</Text>
+                  </RNAnimated.View>
+                )}
               </View>
             </ScrollView>
 
@@ -894,7 +911,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     padding: 10,
   },
-  schedPreviewText: { fontSize: 13, color: colors.info, fontWeight: '600' },
+  schedPreviewText: { fontSize: 13, color: colors.info, fontWeight: '500' },
+  
+  capWarning: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: colors.danger + '15',
+    padding: 12, borderRadius: radius.md,
+    marginTop: 8,
+  },
+  capWarningText: { fontSize: 13, color: colors.danger, flex: 1, fontWeight: '500' },
 
   // Footer
   footer: { paddingTop: 4 },

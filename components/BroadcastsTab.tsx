@@ -13,6 +13,7 @@ import RNAnimated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { colors, spacing, radius } from '@/lib/theme';
 import { formatScheduledAt, type MockBroadcast } from '@/lib/mockBroadcasts';
 import { useBroadcasts } from '@/hooks/useBroadcasts';
+import { useDailyBroadcastCap } from '@/hooks/useDailyBroadcastCap';
 import { useClientContext } from '@/context/ClientContext';
 import { QuickBroadcastSheet } from './QuickBroadcastSheet';
 import { BroadcastDetailSheet } from './BroadcastDetailSheet';
@@ -177,6 +178,7 @@ type SubTab = 'recent' | 'scheduled';
 export function BroadcastsTab() {
   const { clientId } = useClientContext();
   const { broadcasts, createBroadcast, cancelBroadcast } = useBroadcasts(clientId);
+  const { sentToday, remaining, isAtCap, DAILY_CAP, recordSent } = useDailyBroadcastCap();
   const [subTab, setSubTab] = useState<SubTab>('recent');
   const [showCompose, setShowCompose] = useState(false);
   const [editBroadcast, setEditBroadcast] = useState<MockBroadcast | null>(null);
@@ -210,8 +212,12 @@ export function BroadcastsTab() {
   }
 
   async function handleSend(broadcast: MockBroadcast) {
+    if (broadcast.status === 'sent' && broadcast.recipientCount > remaining) {
+      return; // Shouldn't happen since we block in QuickBroadcastSheet, but safety net
+    }
     await createBroadcast(broadcast);
     if (broadcast.status === 'sent') {
+      await recordSent(broadcast.recipientCount);
       showToast(`✓ Broadcast sent to ${broadcast.recipientCount} recipient${broadcast.recipientCount !== 1 ? 's' : ''}`);
       setSubTab('recent');
     } else {
@@ -247,10 +253,22 @@ export function BroadcastsTab() {
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={styles.tabTitle}>Broadcasts</Text>
-        <TouchableOpacity style={styles.newBtn} onPress={() => { setEditBroadcast(null); setShowCompose(true); }}>
+        <TouchableOpacity style={[styles.newBtn, isAtCap && { opacity: 0.4 }]} onPress={() => { if (!isAtCap) { setEditBroadcast(null); setShowCompose(true); } }} disabled={isAtCap}>
           <Ionicons name="add" size={14} color={colors.primary} />
           <Text style={styles.newBtnText}>New Broadcast</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Daily cap bar */}
+      <View style={styles.capBar}>
+        <View style={styles.capRow}>
+          <Text style={styles.capLabel}>Today's usage</Text>
+          <Text style={[styles.capCount, isAtCap && { color: colors.danger }]}>{sentToday} / {DAILY_CAP}</Text>
+        </View>
+        <View style={styles.capTrack}>
+          <View style={[styles.capFill, { width: `${Math.min(100, (sentToday / DAILY_CAP) * 100)}%` }, isAtCap && { backgroundColor: colors.danger }]} />
+        </View>
+        <Text style={styles.capRemaining}>{remaining} messages remaining</Text>
       </View>
 
       {/* Sub-tabs */}
@@ -316,6 +334,8 @@ export function BroadcastsTab() {
         onClose={() => { setShowCompose(false); setEditBroadcast(null); }}
         onSend={handleSend}
         initialBroadcast={editBroadcast}
+        dailyRemaining={remaining}
+        isAtCap={isAtCap}
       />
       <BroadcastDetailSheet
         broadcast={detailBroadcast}
@@ -350,6 +370,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '12',
   },
   newBtnText: { fontSize: 12, fontWeight: '700', color: colors.primary },
+
+  // Daily cap
+  capBar: {
+    marginHorizontal: spacing.md,
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 6,
+  },
+  capRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  capLabel: { fontSize: 12, fontWeight: '500', color: colors.textMuted },
+  capCount: { fontSize: 13, fontWeight: '700', color: colors.text },
+  capTrack: {
+    height: 6, borderRadius: 3,
+    backgroundColor: colors.border,
+    overflow: 'hidden',
+  },
+  capFill: {
+    height: '100%', borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  capRemaining: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
 
   // Sub-tabs
   subTabBar: {
